@@ -27,20 +27,20 @@ Added 2026-11-02 (owner tried these on the phone and liked them):
 
 ## Purpose (from the owner, 2026-11-02)
 
-A personal app, for playing while travelling. **Not planned for the Play Store** for now.
-It is installed directly (adb or APK file). Owner tried a store app with
-the same name and disliked its ads and paywalls; keep this one free of both.
+A personal app, for playing while travelling, installed directly (adb or APK file).
+Later the same day the owner decided to **publish it free on Google Play** too, for anyone.
+Owner tried a store app with the same name and disliked its ads and paywalls; keep this
+one free of both.
 
 Owner tried persistence, solve animation, sound, icon and splash on the phone and liked
 all of it (2026-11-02). Icon graph enlarged 20% afterwards.
 
 ## Next tasks
 
-1. Install on a second phone (adb over USB, or send the release APK).
-2. Optional, only if the store is wanted later: screenshots, a 1024×500 feature graphic.
-3. Optional **release signing**: owner said "later" (2026-11-02). Release builds are still signed
-   with the debug key (`android/app/build.gradle.kts`). When resumed: ask whether they
-   have an existing `.jks`/`.keystore`, or create a new one; use `key.properties` (gitignored).
+1. **Publish on Google Play** (free): follow [PLAY_STORE.md](PLAY_STORE.md) step by step,
+   together with the owner, in a fresh chat. It covers signing, privacy policy, graphics,
+   Console forms and the 12-tester closed test. Release builds are still debug-signed.
+2. Install on a second phone (adb over USB, or send the release APK).
 
 ## Parked: what does "improving a level" mean?
 
