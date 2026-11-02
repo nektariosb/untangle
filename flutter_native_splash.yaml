@@ -1,0 +1,13 @@
+# Images come from tool/gen_icon_test.dart. Regenerate: dart run flutter_native_splash:create
+# Colors match the app's scaffold background in light and dark.
+flutter_native_splash:
+  color: "#EFF1E2"
+  image: assets/icon/splash_light.png
+  color_dark: "#13160E"
+  image_dark: assets/icon/splash_dark.png
+  android_12:
+    color: "#EFF1E2"
+    image: assets/icon/splash_light.png
+    color_dark: "#13160E"
+    image_dark: assets/icon/splash_dark.png
+  web: true
