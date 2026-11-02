@@ -37,9 +37,10 @@ all of it (2026-11-02). Icon graph enlarged 20% afterwards.
 
 ## Next tasks
 
-1. **Publish on Google Play** (free): follow [PLAY_STORE.md](PLAY_STORE.md) step by step,
-   together with the owner, in a fresh chat. It covers signing, privacy policy, graphics,
-   Console forms and the 12-tester closed test. Release builds are still debug-signed.
+1. **Publish on Google Play** (free): in progress, see the Progress section of
+   [PLAY_STORE.md](PLAY_STORE.md). Signing, privacy policy, graphics and screenshots are
+   done; the developer account exists and waits for Google's identity check. Next: phone
+   verification, create the app, listing + forms, upload the `.aab`, 12-tester closed test.
 2. Install on a second phone (adb over USB, or send the release APK).
 
 ## Parked: what does "improving a level" mean?

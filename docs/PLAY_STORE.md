@@ -7,12 +7,13 @@ their earlier apps). Walk through each step together, one at a time, and explain
 
 ## Progress (2026-11-02)
 
-- [ ] 1. Developer account
-- [x] 2. Upload key at `C:\Users\basde\keys\untangle-upload.jks`, `android/key.properties`
-  filled, `flutter build appbundle --release` is signed with it. Owner to back up the key.
+- [x] 1. Personal developer account created 2026-11-02, developer name "Zoe B.". Public
+  email `opapasopaxys@pm.me` verified. Android device verified. Identity documents
+  uploaded, waiting on Google (a few days). Phone number verification comes after that.
+- [x] 2. Upload key created outside the repo (path in the gitignored `android/key.properties`).
+  `flutter build appbundle --release` is signed with it. One key per app.
 - [x] 3. `docs/privacy.html` written (public email `opapasopaxys@pm.me`, a Proton alias).
-  Not hosted yet: push, then enable GitHub Pages (main, `/docs`) →
-  `https://nektariosb.github.io/untangle/privacy.html`.
+  Live on GitHub Pages (main, `/docs`): <https://nektariosb.github.io/untangle/privacy.html>.
 - [x] 4. `docs/store/`: icon_512, feature_graphic, screenshot_1..5 (cropped to < 2:1).
 
 ## Costs
