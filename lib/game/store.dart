@@ -24,4 +24,10 @@ class Store {
 
   bool get muted => _prefs.getBool('muted') ?? false;
   set muted(bool muted) => _prefs.setBool('muted', muted);
+
+  /// The puzzle in progress as JSON, so it survives the app being killed in
+  /// the background. Null when there is none (e.g. just solved).
+  String? get game => _prefs.getString('game');
+  set game(String? json) =>
+      json == null ? _prefs.remove('game') : _prefs.setString('game', json);
 }

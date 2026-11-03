@@ -2,14 +2,12 @@
 
 _Plan agreed 2026-11-02. Free app, no ads, no in-app purchases, no data collected._
 
-The owner has never published an app on Google Play themselves (their customers published
-their earlier apps). Walk through each step together, one at a time, and explain as we go.
+First Play release for the owner: walk through each step together, one at a time.
 
 ## Progress (2026-11-02)
 
-- [x] 1. Personal developer account created 2026-11-02, developer name "Zoe B.". Public
-  email `opapasopaxys@pm.me` verified. Android device verified. Identity documents
-  uploaded, waiting on Google (a few days). Phone number verification comes after that.
+- [x] 1. Personal developer account created. Public email `opapasopaxys@pm.me` verified.
+  Waiting on Google's identity check; phone verification comes after that.
 - [x] 2. Upload key created outside the repo (path in the gitignored `android/key.properties`).
   `flutter build appbundle --release` is signed with it. One key per app.
 - [x] 3. `docs/privacy.html` written (public email `opapasopaxys@pm.me`, a Proton alias).
@@ -37,7 +35,7 @@ Legend: **[Owner]** only the owner can do it · **[Claude]** done in this repo.
 - Create an upload keystore (`.jks`) with `keytool`. The owner picks the password.
 - Store the passwords in `android/key.properties` (**must be gitignored**, the repo is public)
   and read it in `android/app/build.gradle.kts`.
-- The owner **backs up the `.jks` file and passwords** somewhere safe (e.g. Proton Drive).
+- The owner **backs up the `.jks` file and passwords** somewhere safe.
   With Play App Signing, Google holds the real app key, so a lost upload key can be reset,
   but it is slow.
 - Build an **App Bundle**: `flutter build appbundle --release` → `build/app/outputs/bundle/release/app-release.aab`.
@@ -78,7 +76,7 @@ Legend: **[Owner]** only the owner can do it · **[Claude]** done in this repo.
 
 - Required for personal accounts created after Nov 2023, before applying for production.
 - Upload the `.aab` to a **closed testing** track, add at least **12 testers** by Google
-  account email (family, friends with Android phones). They must **opt in through the test
+  account email. They must **opt in through the test
   link** and keep the app installed for **14 days in a row**.
 - Then apply for **production access** in the console and answer a few questions about the test.
 

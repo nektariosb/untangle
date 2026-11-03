@@ -33,11 +33,24 @@ state, the agreed next tasks, ideas the owner rejected, and open questions.
   `_BoardPainter` (CustomPainter).
   - Input is a raw `Listener` keyed by pointer id, so multi-touch drags several dots at once.
   - A win is declared only on pointer-up, once all fingers are lifted.
+  - Each finger's `_Drag` moves its dots by the finger's offset since the grab (no snap to
+    the finger), clamped so the whole group stays on the board.
+  - Pointers that start on empty board are view pointers: two pinch-zoom (1–4×), one pans
+    when zoomed. `_toScreen` = base mapping × `_zoom` + `_pan`. Dot size is not zoomed.
+    `_viewAnim` eases back to 1× (fit button, and automatically on solve).
+  - Holding one finger still on empty board for 400 ms starts a lasso; dots inside become
+    `_selected` (ringed, chip with ✕). Grabbing a selected dot drags the whole group.
+    Any touch that isn't on a selected dot clears the selection (owner's choice).
+  - Full screen (`_setFullScreen`) hides HUD + bottom bar and uses immersiveSticky.
+  - Reshuffle / New puzzle ask for confirmation once a move was made (`_confirmThen`).
   - Level L uses `L + 3` lines (level 1 = 6 dots … level 11 = 91 dots). `_maxLevel = 11`.
   - Solve animation: `_solveAnim` (1.8 s) drives a green wave from the last-moved dot and
     a spark burst in `_BoardPainter`. The solved card appears at 70%.
 - [lib/game/store.dart](lib/game/store.dart): `shared_preferences` wrapper (theme, level,
-  unlocked, muted). `main()` loads it before `runApp`.
+  unlocked, muted, `game`). `main()` loads it before `runApp`.
+  - `game` is the puzzle in progress as JSON (`Puzzle.toJson`, plus level/moves/time).
+    Saved after every move, on reshuffle/new puzzle and when the app is hidden; cleared
+    on solve. Restored on start if it matches the current level. Timer pauses in background.
 - [lib/game/sfx.dart](lib/game/sfx.dart): `audioplayers` pools for grab/solve. Silent until
   `init()` runs (only `main()` calls it, so tests stay silent).
 - [tool/](tool/): `gen_sounds.dart` (WAVs) and `gen_icon_test.dart` (icon/splash PNGs).

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -31,15 +32,45 @@ class GameScreen extends StatefulWidget {
 /// One spark of the solve burst. Speed is a fraction of the board's short side.
 typedef _Spark = ({double angle, double speed, double size});
 
-class _GameScreenState extends State<GameScreen>
-    with SingleTickerProviderStateMixin {
+/// One finger dragging one dot, or a whole selected group. Everything moves by
+/// the finger's offset since the grab, so nothing jumps under the finger.
+class _Drag {
+  /// The dot under the finger (the solve wave starts here).
+  final int grabbed;
+  final Offset fingerStart; // board coordinates
+  final Map<int, Offset> start; // vertex -> board position at the grab
+  final Rect allowed; // range of the offset that keeps every dot on the board
+
+  _Drag(this.grabbed, this.fingerStart, this.start)
+    : allowed = Rect.fromLTRB(
+        -start.values.map((p) => p.dx).reduce(min),
+        -start.values.map((p) => p.dy).reduce(min),
+        1 - start.values.map((p) => p.dx).reduce(max),
+        1 - start.values.map((p) => p.dy).reduce(max),
+      );
+
+  Map<int, Offset> targets(Offset finger) {
+    final d = finger - fingerStart;
+    final c = Offset(
+      d.dx.clamp(allowed.left, allowed.right),
+      d.dy.clamp(allowed.top, allowed.bottom),
+    );
+    return start.map((v, p) => MapEntry(v, p + c));
+  }
+}
+
+class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   static const _minLines = 4;
   static const _maxLines = 14;
   static const _maxLevel = _maxLines - _minLines + 1;
 
   late final _rng = widget.random ?? Random();
   final _stopwatch = Stopwatch();
+
+  /// Play time from before a restore; the stopwatch adds to it.
+  Duration _elapsedBefore = Duration.zero;
   Timer? _ticker;
+  late final AppLifecycleListener _lifecycle;
 
   late int _unlocked = widget.store.unlocked.clamp(1, _maxLevel);
   late int _level = widget.store.level.clamp(1, _unlocked);
@@ -55,28 +86,77 @@ class _GameScreenState extends State<GameScreen>
   int _solveFrom = 0;
   List<_Spark> _sparks = const [];
 
-  /// Active pointer id -> dragged vertex. Supports several fingers at once.
-  final Map<int, int> _drags = {};
+  /// Active pointer id -> its drag. Supports several fingers at once.
+  final Map<int, _Drag> _drags = {};
   final Set<int> _movedThisDrag = {};
+
+  Set<int> get _dragged => {for (final d in _drags.values) ...d.start.keys};
+
+  /// Dots picked with the lasso; dragging any of them moves them all.
+  Set<int> _selected = {};
+
+  /// Holding still on empty board starts a lasso, drawn in screen coordinates.
+  static const _holdDelay = Duration(milliseconds: 400);
+  static const _touchSlop = 10.0;
+  Timer? _holdTimer;
+  int? _lassoPointer;
+  List<Offset> _lasso = [];
+  final Map<int, Offset> _viewStart = {};
 
   // Board geometry, refreshed on every layout.
   Size _boardSize = Size.zero;
   double _padding = 0;
 
+  /// View transform: screen = base * zoom + pan. Dots keep their pixel size,
+  /// so zooming in spreads a dense board out.
+  static const _maxZoom = 4.0;
+  double _zoom = 1;
+  Offset _pan = Offset.zero;
+
+  /// Pointers that started on empty board: one pans, two pinch.
+  final Map<int, Offset> _viewPointers = {};
+
+  /// Eases the view back to the whole board (fit button, and on solve).
+  late final _viewAnim = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 450),
+  )..addListener(_onViewAnim);
+  double _animFromZoom = 1;
+  Offset _animFromPan = Offset.zero;
+
+  bool _fullScreen = false;
+
   @override
   void initState() {
     super.initState();
     widget.sfx.muted = widget.store.muted;
-    _newPuzzle();
+    if (!_restoreGame()) _newPuzzle();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!_solved && mounted) setState(() {});
     });
+    // The OS may kill the app while it's in the background: save on the way
+    // out, and don't count time spent away.
+    _lifecycle = AppLifecycleListener(
+      onHide: () {
+        _stopwatch.stop();
+        _saveGame();
+      },
+      onShow: () {
+        if (!_solved) _stopwatch.start();
+      },
+    );
   }
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     _ticker?.cancel();
+    _holdTimer?.cancel();
     _solveAnim.dispose();
+    _viewAnim.dispose();
+    if (_fullScreen) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
     super.dispose();
   }
 
@@ -90,6 +170,7 @@ class _GameScreenState extends State<GameScreen>
   void _newPuzzle() {
     _puzzle = Puzzle.generate(_linesFor(_level), _rng);
     _resetProgress();
+    _saveGame();
   }
 
   void _reshuffle() {
@@ -97,9 +178,47 @@ class _GameScreenState extends State<GameScreen>
       _puzzle.scramble(_rng);
       _resetProgress();
     });
+    _saveGame();
+  }
+
+  void _saveGame() {
+    if (_solved) return;
+    widget.store.game = jsonEncode({
+      'level': _level,
+      'moves': _moves,
+      'elapsedMs': _elapsed.inMilliseconds,
+      'puzzle': _puzzle.toJson(),
+    });
+  }
+
+  /// Picks up the saved puzzle if it belongs to the current level.
+  bool _restoreGame() {
+    final raw = widget.store.game;
+    if (raw == null) return false;
+    try {
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      if (json['level'] != _level) return false;
+      final puzzle = Puzzle.fromJson(json['puzzle'] as Map<String, dynamic>);
+      if (puzzle.vertexCount != _dotsFor(_level) || puzzle.isSolved) {
+        return false;
+      }
+      _puzzle = puzzle;
+      _resetProgress();
+      _moves = json['moves'] as int;
+      _elapsedBefore = Duration(milliseconds: json['elapsedMs'] as int);
+      return true;
+    } catch (_) {
+      return false; // corrupt or from an older version: start fresh
+    }
   }
 
   void _resetProgress() {
+    _elapsedBefore = Duration.zero;
+    _viewAnim.stop();
+    _zoom = 1;
+    _pan = Offset.zero;
+    _selected = {};
+    _endLasso();
     _drags.clear();
     _movedThisDrag.clear();
     _moves = 0;
@@ -123,22 +242,123 @@ class _GameScreenState extends State<GameScreen>
     return n <= 15 ? 13 : (n <= 36 ? 11 : 9);
   }
 
-  Offset _toScreen(Offset p) => Offset(
-    _padding + p.dx * (_boardSize.width - 2 * _padding),
-    _padding + p.dy * (_boardSize.height - 2 * _padding),
+  Offset _toScreen(Offset p) =>
+      Offset(
+            _padding + p.dx * (_boardSize.width - 2 * _padding),
+            _padding + p.dy * (_boardSize.height - 2 * _padding),
+          ) *
+          _zoom +
+      _pan;
+
+  Offset _toBoard(Offset s) {
+    final u = (s - _pan) / _zoom;
+    return Offset(
+      (u.dx - _padding) / (_boardSize.width - 2 * _padding),
+      (u.dy - _padding) / (_boardSize.height - 2 * _padding),
+    );
+  }
+
+  /// Keeps the zoomed board covering the whole viewport.
+  Offset _clampPan(Offset pan, double zoom) => Offset(
+    pan.dx.clamp(_boardSize.width * (1 - zoom), 0.0),
+    pan.dy.clamp(_boardSize.height * (1 - zoom), 0.0),
   );
 
-  Offset _toBoard(Offset s) => Offset(
-    (s.dx - _padding) / (_boardSize.width - 2 * _padding),
-    (s.dy - _padding) / (_boardSize.height - 2 * _padding),
-  );
+  void _moveView(int pointer, Offset to) {
+    final from = _viewPointers[pointer]!;
+    _viewPointers[pointer] = to;
+    if (pointer == _lassoPointer) {
+      if ((to - _lasso.last).distance > 3) setState(() => _lasso.add(to));
+      return;
+    }
+    if ((to - _viewStart[pointer]!).distance > _touchSlop) _holdTimer?.cancel();
+    // Leave the view alone while a dot is dragged or a lasso is drawn.
+    if (_drags.isNotEmpty || _lassoPointer != null) return;
+    _viewAnim.stop();
+    final other = _viewPointers.entries
+        .where((e) => e.key != pointer)
+        .firstOrNull
+        ?.value;
+    var zoom = _zoom;
+    var pan = _pan;
+    if (other == null) {
+      if (_zoom == 1) return;
+      pan += to - from;
+    } else {
+      final oldDist = (from - other).distance;
+      if (oldDist < 1) return;
+      zoom = (_zoom * (to - other).distance / oldDist).clamp(1.0, _maxZoom);
+      // Keep the board point under the fingers' midpoint under it.
+      final anchor = ((from + other) / 2 - pan) / _zoom;
+      pan = (to + other) / 2 - anchor * zoom;
+    }
+    setState(() {
+      _zoom = zoom;
+      _pan = _clampPan(pan, zoom);
+    });
+  }
+
+  void _resetView() {
+    if (_zoom == 1) return;
+    _animFromZoom = _zoom;
+    _animFromPan = _pan;
+    _viewAnim.forward(from: 0);
+  }
+
+  void _onViewAnim() {
+    final t = Curves.easeInOutCubic.transform(_viewAnim.value);
+    setState(() {
+      _zoom = 1 + (_animFromZoom - 1) * (1 - t);
+      _pan = _animFromPan * (1 - t);
+    });
+  }
+
+  void _startLasso(int pointer) {
+    if (!_viewPointers.containsKey(pointer) || _viewPointers.length > 1) return;
+    if (_drags.isNotEmpty || _solved) return;
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _lassoPointer = pointer;
+      _lasso = [_viewPointers[pointer]!];
+    });
+  }
+
+  /// Selects the dots inside the drawn loop.
+  void _finishLasso() {
+    final path = Path()..addPolygon(_lasso, true);
+    final picked = _lasso.length < 3
+        ? <int>{}
+        : {
+            for (var v = 0; v < _puzzle.vertexCount; v++)
+              if (path.contains(_toScreen(_puzzle.positions[v]))) v,
+          };
+    setState(() {
+      _selected = picked;
+      _endLasso();
+    });
+    if (picked.isNotEmpty) HapticFeedback.selectionClick();
+  }
+
+  void _endLasso() {
+    _holdTimer?.cancel();
+    _lassoPointer = null;
+    _lasso = [];
+  }
+
+  void _setFullScreen(bool on) {
+    setState(() => _fullScreen = on);
+    SystemChrome.setEnabledSystemUIMode(
+      on ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+    );
+  }
 
   int? _hitTest(Offset local) {
     final touchRadius = max(_dotRadius * 2.2, 26.0);
+    final dragged = _dragged;
     int? best;
     var bestDist = touchRadius;
     for (var v = 0; v < _puzzle.vertexCount; v++) {
-      if (_drags.containsValue(v)) continue;
+      if (dragged.contains(v)) continue;
       final d = (_toScreen(_puzzle.positions[v]) - local).distance;
       if (d < bestDist) {
         bestDist = d;
@@ -149,10 +369,29 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _onPointerDown(PointerDownEvent e) {
-    if (_solved) return;
-    final v = _hitTest(e.localPosition);
-    if (v == null) return;
-    setState(() => _drags[e.pointer] = v);
+    final v = _solved ? null : _hitTest(e.localPosition);
+    // Any touch that isn't on the selection ends it.
+    if (_selected.isNotEmpty && !_selected.contains(v)) {
+      setState(() => _selected = {});
+    }
+    if (v == null) {
+      _viewPointers[e.pointer] = e.localPosition;
+      _viewStart[e.pointer] = e.localPosition;
+      _holdTimer?.cancel();
+      if (_viewPointers.length == 1 && _lassoPointer == null) {
+        final id = e.pointer;
+        _holdTimer = Timer(_holdDelay, () => _startLasso(id));
+      }
+      return;
+    }
+    _holdTimer?.cancel(); // a dot was grabbed: no lasso now
+    final group = _selected.contains(v) ? _selected : {v};
+    setState(() {
+      _viewAnim.stop();
+      _drags[e.pointer] = _Drag(v, _toBoard(e.localPosition), {
+        for (final u in group) u: _puzzle.positions[u],
+      });
+    });
     HapticFeedback.selectionClick();
     widget.sfx.grab();
   }
@@ -163,20 +402,32 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _onPointerMove(PointerMoveEvent e) {
-    final v = _drags[e.pointer];
-    if (v == null) return;
+    if (_viewPointers.containsKey(e.pointer)) {
+      _moveView(e.pointer, e.localPosition);
+      return;
+    }
+    final drag = _drags[e.pointer];
+    if (drag == null) return;
     setState(() {
-      _puzzle.moveVertex(v, _toBoard(e.localPosition));
+      _puzzle.moveVertices(drag.targets(_toBoard(e.localPosition)));
       _movedThisDrag.add(e.pointer);
     });
   }
 
   void _onPointerEnd(PointerEvent e) {
-    final v = _drags[e.pointer];
-    if (v == null) return;
+    _viewStart.remove(e.pointer);
+    if (_viewPointers.remove(e.pointer) != null) {
+      if (e.pointer == _lassoPointer) return _finishLasso();
+      _holdTimer?.cancel();
+      return;
+    }
+    final drag = _drags[e.pointer];
+    if (drag == null) return;
+    final v = drag.grabbed;
     setState(() {
       _drags.remove(e.pointer);
-      if (_movedThisDrag.remove(e.pointer)) _moves++;
+      final moved = _movedThisDrag.remove(e.pointer);
+      if (moved) _moves++;
       // Only declare victory once every finger is lifted.
       if (_drags.isEmpty && _puzzle.isSolved) {
         _solved = true;
@@ -193,73 +444,153 @@ class _GameScreenState extends State<GameScreen>
             ),
         ];
         _solveAnim.forward(from: 0);
+        _selected = {};
+        _resetView(); // show the whole untangled board
+        widget.store.game = null;
         if (_level == _unlocked && _level < _maxLevel) {
           widget.store.unlocked = ++_unlocked;
         }
+      } else if (moved) {
+        _saveGame();
       }
     });
   }
 
+  Duration get _elapsed => _elapsedBefore + _stopwatch.elapsed;
+
   String get _timeText {
-    final s = _stopwatch.elapsed.inSeconds;
+    final s = _elapsed.inSeconds;
     return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = BoardColors.of(context);
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHud(context),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    color: colors.board,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        _boardSize = constraints.biggest;
-                        _padding = _dotRadius + 6;
-                        return Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Listener(
-                              behavior: HitTestBehavior.opaque,
-                              onPointerDown: _onPointerDown,
-                              onPointerMove: _onPointerMove,
-                              onPointerUp: _onPointerEnd,
-                              onPointerCancel: _onPointerEnd,
-                              child: CustomPaint(
-                                painter: _BoardPainter(
-                                  puzzle: _puzzle,
-                                  toScreen: _toScreen,
-                                  dotRadius: _dotRadius,
-                                  dragged: _drags.values.toSet(),
-                                  solveT: _solved ? _solveAnim.value : null,
-                                  solveFrom: _solveFrom,
-                                  sparks: _sparks,
-                                  colors: colors,
-                                ),
-                              ),
-                            ),
-                            if (_moves == 0 && _drags.isEmpty && !_solved)
-                              _buildHint(context, colors),
-                            if (_solved && _solveAnim.value >= 0.7)
-                              _buildSolvedOverlay(context),
-                          ],
-                        );
-                      },
+    return PopScope(
+      // Back leaves full screen first.
+      canPop: !_fullScreen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _setFullScreen(false);
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: Column(
+            children: [
+              if (!_fullScreen) _buildHud(context),
+              Expanded(
+                child: Padding(
+                  padding: _fullScreen
+                      ? const EdgeInsets.all(4)
+                      : const EdgeInsets.symmetric(horizontal: 8),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      color: colors.board,
+                      child: _buildBoard(context, colors),
                     ),
                   ),
                 ),
               ),
+              if (!_fullScreen) _buildBottomBar(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBoard(BuildContext context, BoardColors colors) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _boardSize = constraints.biggest;
+        _padding = _dotRadius + 6;
+        _pan = _clampPan(_pan, _zoom); // after a resize
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: _onPointerDown,
+              onPointerMove: _onPointerMove,
+              onPointerUp: _onPointerEnd,
+              onPointerCancel: _onPointerEnd,
+              child: CustomPaint(
+                painter: _BoardPainter(
+                  puzzle: _puzzle,
+                  toScreen: _toScreen,
+                  dotRadius: _dotRadius,
+                  dragged: _dragged,
+                  selected: _selected,
+                  lasso: _lasso,
+                  solveT: _solved ? _solveAnim.value : null,
+                  solveFrom: _solveFrom,
+                  sparks: _sparks,
+                  colors: colors,
+                ),
+              ),
             ),
-            _buildBottomBar(),
+            if (_moves == 0 && _drags.isEmpty && !_solved && !_fullScreen)
+              _buildHint(context, colors),
+            if (_fullScreen)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Row(
+                  children: [
+                    _buildCrossingsChip(),
+                    const SizedBox(width: 4),
+                    IconButton.filledTonal(
+                      tooltip: 'Exit full screen',
+                      icon: const Icon(Icons.fullscreen_exit),
+                      onPressed: () => _setFullScreen(false),
+                    ),
+                  ],
+                ),
+              ),
+            if (_selected.isNotEmpty && !_solved)
+              Positioned(
+                top: 8,
+                left: 8,
+                child: InputChip(
+                  label: Text('${_selected.length} dots selected'),
+                  onDeleted: () => setState(() => _selected = {}),
+                  deleteButtonTooltipMessage: 'Clear selection',
+                ),
+              ),
+            if (_zoom > 1)
+              Positioned(
+                right: 8,
+                bottom: 8,
+                child: IconButton.filledTonal(
+                  tooltip: 'Fit board',
+                  icon: const Icon(Icons.fit_screen),
+                  onPressed: _resetView,
+                ),
+              ),
+            if (_solved && _solveAnim.value >= 0.7)
+              _buildSolvedOverlay(context),
           ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCrossingsChip() {
+    final crossings = _puzzle.crossingCount;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: crossings == 0
+            ? const Color(0xFF5B6E1C)
+            : const Color(0xFFB5523A),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        crossings == 0 ? 'No crossings' : '$crossings crossings',
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -267,7 +598,6 @@ class _GameScreenState extends State<GameScreen>
 
   Widget _buildHud(BuildContext context) {
     final theme = Theme.of(context);
-    final crossings = _puzzle.crossingCount;
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
       child: Row(
@@ -304,23 +634,7 @@ class _GameScreenState extends State<GameScreen>
               ),
             ),
           ),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: crossings == 0
-                  ? const Color(0xFF5B6E1C)
-                  : const Color(0xFFB5523A),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              crossings == 0 ? 'No crossings' : '$crossings crossings',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
+          _buildCrossingsChip(),
           IconButton(
             tooltip: theme.brightness == Brightness.dark
                 ? 'Light theme'
@@ -375,7 +689,9 @@ class _GameScreenState extends State<GameScreen>
               const SizedBox(width: 10),
               Flexible(
                 child: Text(
-                  'Lines that cross. Drag the dots until none are left.',
+                  'Lines that cross. Drag the dots until none are left.'
+                  '${_puzzle.vertexCount > 28 ? '\nPinch empty space to zoom. Hold it, then '
+                            'circle dots to move them together.' : ''}',
                   style: theme.textTheme.bodySmall,
                 ),
               ),
@@ -386,14 +702,41 @@ class _GameScreenState extends State<GameScreen>
     );
   }
 
+  /// Runs [action] right away on an untouched or solved board; otherwise asks
+  /// first, so a stray tap near the board edge can't wipe the player's work.
+  Future<void> _confirmThen(String verb, VoidCallback action) async {
+    if (_moves == 0 || _solved) {
+      action();
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('$verb?'),
+        content: const Text('Your progress on this puzzle will be lost.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep playing'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(verb),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) action();
+  }
+
   Widget _buildBottomBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
       child: Row(
         children: [
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: _reshuffle,
+              onPressed: () => _confirmThen('Reshuffle', _reshuffle),
               icon: const Icon(Icons.refresh),
               label: const Text('Reshuffle'),
             ),
@@ -401,10 +744,17 @@ class _GameScreenState extends State<GameScreen>
           const SizedBox(width: 8),
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: () => setState(_newPuzzle),
+              onPressed: () =>
+                  _confirmThen('New puzzle', () => setState(_newPuzzle)),
               icon: const Icon(Icons.casino_outlined),
               label: const Text('New puzzle'),
             ),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'Full screen',
+            icon: const Icon(Icons.fullscreen),
+            onPressed: () => _setFullScreen(true),
           ),
         ],
       ),
@@ -570,6 +920,10 @@ class _BoardPainter extends CustomPainter {
   final Offset Function(Offset) toScreen;
   final double dotRadius;
   final Set<int> dragged;
+  final Set<int> selected;
+
+  /// Loop being drawn, in screen coordinates (empty when none).
+  final List<Offset> lasso;
 
   /// Solve animation progress 0..1, or null while unsolved.
   final double? solveT;
@@ -582,6 +936,8 @@ class _BoardPainter extends CustomPainter {
     required this.toScreen,
     required this.dotRadius,
     required this.dragged,
+    required this.selected,
+    required this.lasso,
     required this.solveT,
     required this.solveFrom,
     required this.sparks,
@@ -628,6 +984,26 @@ class _BoardPainter extends CustomPainter {
       canvas.drawLine(pts[e.a], pts[e.b], edgePaint);
     }
 
+    if (lasso.length > 1) {
+      final path = Path()..addPolygon(lasso, false);
+      canvas.drawPath(
+        Path()..addPolygon(lasso, true),
+        Paint()..color = colors.dragged.withValues(alpha: 0.08),
+      );
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..strokeJoin = StrokeJoin.round
+          ..color = colors.dragged.withValues(alpha: 0.6),
+      );
+    }
+    final selectRing = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = colors.dragged.withValues(alpha: 0.55);
+
     final fill = Paint();
     final outline = Paint()
       ..style = PaintingStyle.stroke
@@ -664,6 +1040,8 @@ class _BoardPainter extends CustomPainter {
       if (isConnected && t == null) {
         ring.color = colors.connected.withValues(alpha: 0.45);
         canvas.drawCircle(pts[v], r + 4, ring);
+      } else if (selected.contains(v) && !isDragged && t == null) {
+        canvas.drawCircle(pts[v], r + 4, selectRing);
       }
     }
 

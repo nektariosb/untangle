@@ -60,14 +60,10 @@ class Puzzle {
     }
 
     final edges = <Edge>[];
-    final neighbors = List.generate(solution.length, (_) => <int>{});
     for (final list in alongLine) {
       list.sort((x, y) => x.$1.compareTo(y.$1));
       for (var k = 0; k + 1 < list.length; k++) {
-        final a = list[k].$2, b = list[k + 1].$2;
-        edges.add(Edge(a, b));
-        neighbors[a].add(b);
-        neighbors[b].add(a);
+        edges.add(Edge(list[k].$2, list[k + 1].$2));
       }
     }
 
@@ -75,10 +71,57 @@ class Puzzle {
       List.of(solution),
       _normalize(solution),
       edges,
-      neighbors,
+      _neighborsOf(solution.length, edges),
     );
     puzzle.scramble(rng);
     return puzzle;
+  }
+
+  /// Flat number lists, so a saved game stays small.
+  Map<String, Object> toJson() => {
+    'positions': [
+      for (final p in positions) ...[p.dx, p.dy],
+    ],
+    'solution': [
+      for (final p in solution) ...[p.dx, p.dy],
+    ],
+    'edges': [
+      for (final e in edges) ...[e.a, e.b],
+    ],
+  };
+
+  /// Throws [FormatException] (or a cast error) on malformed data.
+  factory Puzzle.fromJson(Map<String, dynamic> json) {
+    List<Offset> points(Object? raw) {
+      final l = (raw as List).cast<num>();
+      return [
+        for (var i = 0; i + 1 < l.length; i += 2)
+          Offset(l[i].toDouble(), l[i + 1].toDouble()),
+      ];
+    }
+
+    final positions = points(json['positions']);
+    final solution = points(json['solution']);
+    final flat = (json['edges'] as List).cast<int>();
+    final n = positions.length;
+    final edges = [
+      for (var i = 0; i + 1 < flat.length; i += 2) Edge(flat[i], flat[i + 1]),
+    ];
+    if (n == 0 ||
+        solution.length != n ||
+        edges.any((e) => e.a < 0 || e.b < 0 || e.a >= n || e.b >= n)) {
+      throw const FormatException('Bad saved puzzle');
+    }
+    return Puzzle._(positions, solution, edges, _neighborsOf(n, edges));
+  }
+
+  static List<Set<int>> _neighborsOf(int n, List<Edge> edges) {
+    final neighbors = List.generate(n, (_) => <int>{});
+    for (final e in edges) {
+      neighbors[e.a].add(e.b);
+      neighbors[e.b].add(e.a);
+    }
+    return neighbors;
   }
 
   /// Places the vertices on a circle in random order (always tangled).
@@ -98,8 +141,13 @@ class Puzzle {
     } while (crossingCount == 0);
   }
 
-  void moveVertex(int v, Offset p) {
-    positions[v] = Offset(p.dx.clamp(0.0, 1.0), p.dy.clamp(0.0, 1.0));
+  void moveVertex(int v, Offset p) => moveVertices({v: p});
+
+  /// Moves several vertices with a single crossing recompute.
+  void moveVertices(Map<int, Offset> moves) {
+    moves.forEach((v, p) {
+      positions[v] = Offset(p.dx.clamp(0.0, 1.0), p.dy.clamp(0.0, 1.0));
+    });
     recompute();
   }
 
