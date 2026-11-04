@@ -463,9 +463,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
   }
 
+  /// Phone held sideways: the HUD and the bottom bar share one row, so the
+  /// board keeps most of the little height there is.
+  bool _compactLayout(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    return size.width > size.height && size.height < 500;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = BoardColors.of(context);
+    final compact = _compactLayout(context);
     return PopScope(
       // Back leaves full screen first.
       canPop: !_fullScreen,
@@ -474,25 +482,30 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       },
       child: Scaffold(
         body: SafeArea(
-          child: Column(
-            children: [
-              if (!_fullScreen) _buildHud(context),
-              Expanded(
-                child: Padding(
-                  padding: _fullScreen
-                      ? const EdgeInsets.all(4)
-                      : const EdgeInsets.symmetric(horizontal: 8),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      color: colors.board,
-                      child: _buildBoard(context, colors),
+          // Huge system text would squeeze the board away; the bars stay
+          // readable at 1.3x. Dialogs and the level sheet still scale fully.
+          child: MediaQuery.withClampedTextScaling(
+            maxScaleFactor: 1.3,
+            child: Column(
+              children: [
+                if (!_fullScreen) _buildHud(context, compact: compact),
+                Expanded(
+                  child: Padding(
+                    padding: _fullScreen
+                        ? const EdgeInsets.all(4)
+                        : EdgeInsets.fromLTRB(8, 0, 8, compact ? 8 : 0),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        color: colors.board,
+                        child: _buildBoard(context, colors),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              if (!_fullScreen) _buildBottomBar(),
-            ],
+                if (!_fullScreen && !compact) _buildBottomBar(),
+              ],
+            ),
           ),
         ),
       ),
@@ -596,13 +609,18 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildHud(BuildContext context) {
+  Widget _buildHud(BuildContext context, {required bool compact}) {
     final theme = Theme.of(context);
+    // Narrow phones: slightly smaller icon buttons so the level stays readable.
+    final density = MediaQuery.sizeOf(context).width < 380
+        ? VisualDensity.compact
+        : null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
       child: Row(
         children: [
           Expanded(
+            flex: 3,
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: _showLevelPicker,
@@ -613,10 +631,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          'Level $_level',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
+                        Flexible(
+                          child: Text(
+                            'Level $_level',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         const Icon(Icons.arrow_drop_down),
@@ -624,6 +646,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     ),
                     Text(
                       '${_puzzle.vertexCount} dots · $_moves moves · $_timeText',
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
@@ -634,8 +657,31 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               ),
             ),
           ),
-          _buildCrossingsChip(),
+          // Shrinks (rather than overflowing) when a big count meets a narrow
+          // screen or large system text.
+          Flexible(
+            flex: 2,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: _buildCrossingsChip(),
+            ),
+          ),
+          if (compact) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: 'Reshuffle',
+              icon: const Icon(Icons.refresh),
+              onPressed: () => _confirmThen('Reshuffle', _reshuffle),
+            ),
+            IconButton(
+              tooltip: 'New puzzle',
+              icon: const Icon(Icons.casino_outlined),
+              onPressed: () =>
+                  _confirmThen('New puzzle', () => setState(_newPuzzle)),
+            ),
+          ],
           IconButton(
+            visualDensity: density,
             tooltip: theme.brightness == Brightness.dark
                 ? 'Light theme'
                 : 'Dark theme',
@@ -647,6 +693,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             onPressed: () => widget.onToggleTheme(theme.brightness),
           ),
           IconButton(
+            visualDensity: density,
             tooltip: widget.sfx.muted ? 'Sound on' : 'Mute',
             icon: Icon(
               widget.sfx.muted
@@ -655,6 +702,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             ),
             onPressed: _toggleMute,
           ),
+          if (compact)
+            IconButton(
+              tooltip: 'Full screen',
+              icon: const Icon(Icons.fullscreen),
+              onPressed: () => _setFullScreen(true),
+            ),
         ],
       ),
     );
@@ -730,24 +783,29 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildBottomBar() {
+    final style = OutlinedButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
       child: Row(
         children: [
           Expanded(
             child: OutlinedButton.icon(
+              style: style,
               onPressed: () => _confirmThen('Reshuffle', _reshuffle),
               icon: const Icon(Icons.refresh),
-              label: const Text('Reshuffle'),
+              label: const _OneLine('Reshuffle'),
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: OutlinedButton.icon(
+              style: style,
               onPressed: () =>
                   _confirmThen('New puzzle', () => setState(_newPuzzle)),
               icon: const Icon(Icons.casino_outlined),
-              label: const Text('New puzzle'),
+              label: const _OneLine('New puzzle'),
             ),
           ),
           const SizedBox(width: 4),
@@ -765,10 +823,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+      ),
       builder: (context) {
         final theme = Theme.of(context);
         return SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -819,49 +881,53 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         alignment: Alignment.bottomCenter,
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Card(
-            elevation: 6,
-            color: theme.colorScheme.surfaceContainerHigh,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Untangled!',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: BoardColors.of(context).solved,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '$_moves moves in $_timeText',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () => _goToLevel(_level),
-                        icon: const Icon(Icons.replay),
-                        label: const Text('Same level'),
+          // Shrinks to fit a short board (phone landscape, large text).
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Card(
+              elevation: 6,
+              color: theme.colorScheme.surfaceContainerHigh,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Untangled!',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: BoardColors.of(context).solved,
                       ),
-                      if (!isLastLevel)
-                        FilledButton.icon(
-                          onPressed: () => _goToLevel(_level + 1),
-                          icon: const Icon(Icons.arrow_forward),
-                          label: Text('Level ${_level + 1}'),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '$_moves moves in $_timeText',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () => _goToLevel(_level),
+                          icon: const Icon(Icons.replay),
+                          label: const Text('Same level'),
                         ),
-                    ],
-                  ),
-                ],
+                        if (!isLastLevel)
+                          FilledButton.icon(
+                            onPressed: () => _goToLevel(_level + 1),
+                            icon: const Icon(Icons.arrow_forward),
+                            label: Text('Level ${_level + 1}'),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -869,6 +935,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       ),
     );
   }
+}
+
+/// A button label that shrinks on a narrow screen instead of wrapping.
+class _OneLine extends StatelessWidget {
+  const _OneLine(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => FittedBox(
+    fit: BoxFit.scaleDown,
+    child: Text(text, maxLines: 1, softWrap: false),
+  );
 }
 
 /// Board palette for the current theme brightness.

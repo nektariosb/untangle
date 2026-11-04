@@ -42,6 +42,9 @@ state, the agreed next tasks, ideas the owner rejected, and open questions.
     `_selected` (ringed, chip with ✕). Grabbing a selected dot drags the whole group.
     Any touch that isn't on a selected dot clears the selection (owner's choice).
   - Full screen (`_setFullScreen`) hides HUD + bottom bar and uses immersiveSticky.
+  - Phone landscape (`_compactLayout`: wider than tall, height < 500) merges the bottom
+    bar into the HUD row as icon buttons. Bar text is capped at 1.3× system text scale;
+    the crossings chip, button labels and solved card scale down instead of overflowing.
   - Reshuffle / New puzzle ask for confirmation once a move was made (`_confirmThen`).
   - Level L uses `L + 3` lines (level 1 = 6 dots … level 11 = 91 dots). `_maxLevel = 11`.
   - Solve animation: `_solveAnim` (1.8 s) drives a green wave from the last-moved dot and
@@ -57,6 +60,9 @@ state, the agreed next tasks, ideas the owner rejected, and open questions.
 - [test/widget_test.dart](test/widget_test.dart): puzzles for 4..14 lines are solvable and
   start tangled; saved level/unlock restore; solving level 1 by drags runs the animation
   and unlocks level 2 (`GameScreen.random` is seeded for this); mute is saved.
+- [test/screen_sizes_test.dart](test/screen_sizes_test.dart): every screen (HUD, level sheet,
+  dialog, full screen + lasso, solved card) at phone/landscape/tablet/web sizes × text
+  1.0/1.3/2.0; any overflow fails. Loads Roboto from the Flutter SDK for real text widths.
 
 ## Visual language (agreed with owner, keep it)
 
