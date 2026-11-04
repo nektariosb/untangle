@@ -38,9 +38,10 @@ Added 2026-11-03 from the owner's play notes, **not yet tried on a phone**:
 
 ## Next tasks
 
-1. **Publish on Google Play**: see the Progress section of [PLAY_STORE.md](PLAY_STORE.md).
-   Account verified, app created, all forms and store listing done 2026-11-04.
-   Next: build + upload the `.aab` to a closed test, 12 testers for 14 days.
+1. **Publish on Google Play**: see "Current state" and "Next steps" in
+   [PLAY_STORE.md](PLAY_STORE.md). Closed test (12 testers) **sent for Google review
+   2026-11-04**. Next: send the opt-in link once approved, 14 days of testing, apply for
+   production.
 2. Install on a second phone (adb over USB, or send the release APK).
 
 ## Ideas not picked yet

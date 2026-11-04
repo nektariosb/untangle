@@ -4,26 +4,60 @@ _Plan agreed 2026-11-02. Free app, no ads, no in-app purchases, no data collecte
 
 First Play release for the owner: walk through each step together, one at a time.
 
-## Progress (2026-11-04)
+## Current state (2026-11-04): closed test in Google review
 
-- [x] 1. Personal developer account created. Public email `opapasopaxys@pm.me` verified.
-  Identity check and phone verification passed (2026-11-04). Trader status: non-trader
-  (free, no income; nothing personal shown on the store page).
-- [x] 5. App created in the console (2026-11-04): "Untangle", `com.basdekis.untangle`,
-  Game, Free, en-US.
-- [x] 6. All "Finish setting up" tasks saved (2026-11-04): privacy policy URL, sign-in
-  details (nothing restricted), ads (none), content rating (IARC, Everyone / PEGI 3),
-  target audience **all ages incl. under 13** (Families policy; not in Teacher Approved),
-  data safety (no data collected/shared, Families commitment shown), government (no),
-  financial (none), health (none), category Puzzle, store contact `opapasopaxys@pm.me`.
-- [x] 7. Default store listing saved: texts from store_listing.md, icon, feature graphic,
-  5 phone screenshots, AI label: none (assets are drawn by code / real screenshots).
-- [ ] Next: closed test track (countries, testers list, upload `.aab`), 12 testers × 14 days.
-- [x] 2. Upload key created outside the repo (path in the gitignored `android/key.properties`).
-  `flutter build appbundle --release` is signed with it. One key per app.
-- [x] 3. `docs/privacy.html` written (public email `opapasopaxys@pm.me`, a Proton alias).
-  Live on GitHub Pages (main, `/docs`): <https://nektariosb.github.io/untangle/privacy.html>.
+**Waiting on Google.** 16 changes (closed test + store listing + app content) were sent
+for review on 2026-11-04. The console says reviews take up to 7 days. Check in the
+console: Publishing overview ("Changes in review" turns into published), or the email
+on the developer account.
+
+Done:
+
+- [x] 1. Personal developer account. Public email `opapasopaxys@pm.me` verified. Identity
+  and phone verification passed. Trader status: non-trader (free, no income; nothing
+  personal shown on the store page).
+- [x] 2. Upload key outside the repo (path in the gitignored `android/key.properties`).
+  `flutter build appbundle --release` is signed with it. One key per app. Play App
+  Signing is on (Google-managed app key).
+- [x] 3. `docs/privacy.html`, live on GitHub Pages:
+  <https://nektariosb.github.io/untangle/privacy.html>.
 - [x] 4. `docs/store/`: icon_512, feature_graphic, screenshot_1..5 (cropped to < 2:1).
+- [x] 5. App created: "Untangle", `com.basdekis.untangle`, Game, Free, en-US.
+- [x] 6. All "Finish setting up" forms: privacy policy URL, app access (nothing
+  restricted), ads (none), content rating (IARC, Everyone / PEGI 3), target audience
+  **all ages incl. under 13** (Families policy; not in Teacher Approved), data safety
+  (nothing collected/shared), government/financial/health (none), category Puzzle,
+  store contact `opapasopaxys@pm.me`, **advertising ID: No** (the merged release manifest
+  has no `AD_ID` permission; re-check if a plugin is ever added).
+- [x] 7. Default store listing: texts from store_listing.md, icon, feature graphic,
+  5 phone screenshots, AI label: none.
+- [x] 8. Closed testing track **"Closed testing - Alpha"**:
+  - Countries: all 178.
+  - Testers: email list **"Untangle testers"**, 12 Gmail accounts (the list lives only in
+    the console, not in this public repo). Feedback channel `opapasopaxys@pm.me`.
+  - Release `1 (1.0.0)`, versionCode 1, API 24+, target SDK 36, 8.2 MB install.
+    Notes: "First test release."
+
+## Next steps
+
+1. **Wait for approval** (up to ~7 days).
+2. **Recommended now:** add 2–3 spare testers to "Untangle testers" (Alpha track → Testers
+   → arrow next to the list). With exactly 12, one dropout restarts the 14 days.
+3. **After approval:** Alpha track → Testers tab → **Copy link** ("Join on the web"). Send
+   it to every tester with these instructions:
+   - Open the link on the Android phone, signed in with the Gmail that's on the list.
+   - Tap "Become a tester", then install Untangle from Play (from the link).
+   - Keep it installed for at least 14 days; open it now and then.
+4. Owner: uninstall the debug/sideloaded build first (different signature), then install
+   from Play. Saved progress resets.
+5. **Count 14 days** from when the 12th tester opts in. The Dashboard shows "x testers
+   currently opted in". Expected earliest: ~2026-11-20 if approval and opt-ins are quick.
+6. **Apply for production** (Dashboard → Production → "Apply for production"). Answer the
+   questions about the test (who tested, feedback received, changes made). Then step 8
+   below: a production release, another Google review.
+7. Any new build during the test: bump `version:` in `pubspec.yaml` (`1.0.1+2`, the
+   `+N` must go up), `flutter build appbundle --release`, Alpha track → Create new release.
+   Updating doesn't restart the 14 days.
 
 ## Costs
 
