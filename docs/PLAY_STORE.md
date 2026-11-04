@@ -4,10 +4,21 @@ _Plan agreed 2026-11-02. Free app, no ads, no in-app purchases, no data collecte
 
 First Play release for the owner: walk through each step together, one at a time.
 
-## Progress (2026-11-02)
+## Progress (2026-11-04)
 
 - [x] 1. Personal developer account created. Public email `opapasopaxys@pm.me` verified.
-  Waiting on Google's identity check; phone verification comes after that.
+  Identity check and phone verification passed (2026-11-04). Trader status: non-trader
+  (free, no income; nothing personal shown on the store page).
+- [x] 5. App created in the console (2026-11-04): "Untangle", `com.basdekis.untangle`,
+  Game, Free, en-US.
+- [x] 6. All "Finish setting up" tasks saved (2026-11-04): privacy policy URL, sign-in
+  details (nothing restricted), ads (none), content rating (IARC, Everyone / PEGI 3),
+  target audience **all ages incl. under 13** (Families policy; not in Teacher Approved),
+  data safety (no data collected/shared, Families commitment shown), government (no),
+  financial (none), health (none), category Puzzle, store contact `opapasopaxys@pm.me`.
+- [x] 7. Default store listing saved: texts from store_listing.md, icon, feature graphic,
+  5 phone screenshots, AI label: none (assets are drawn by code / real screenshots).
+- [ ] Next: closed test track (countries, testers list, upload `.aab`), 12 testers × 14 days.
 - [x] 2. Upload key created outside the repo (path in the gitignored `android/key.properties`).
   `flutter build appbundle --release` is signed with it. One key per app.
 - [x] 3. `docs/privacy.html` written (public email `opapasopaxys@pm.me`, a Proton alias).

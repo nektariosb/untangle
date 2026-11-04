@@ -1,6 +1,6 @@
 # Roadmap & status
 
-_Last updated: 2026-11-03_
+_Last updated: 2026-11-04_
 
 ## Goal
 
@@ -39,8 +39,8 @@ Added 2026-11-03 from the owner's play notes, **not yet tried on a phone**:
 ## Next tasks
 
 1. **Publish on Google Play**: see the Progress section of [PLAY_STORE.md](PLAY_STORE.md).
-   Next: identity check, phone verification, create the app, listing + forms, upload the
-   `.aab`, 12-tester closed test.
+   Account verified, app created, all forms and store listing done 2026-11-04.
+   Next: build + upload the `.aab` to a closed test, 12 testers for 14 days.
 2. Install on a second phone (adb over USB, or send the release APK).
 
 ## Ideas not picked yet

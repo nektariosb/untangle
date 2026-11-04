@@ -21,6 +21,7 @@ Every puzzle is generated fresh and is always solvable.
 • 11 levels, from 6 dots up to 91
 • Beat a level to open the next one, and replay any level you've opened
 • Drag with several fingers at once
+• Pinch to zoom, and move a whole group of dots together on big levels
 • Reshuffle the same puzzle, or ask for a new one
 • Light and dark themes in soft olive greens
 • Gentle sounds, with a mute button
