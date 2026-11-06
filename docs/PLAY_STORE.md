@@ -4,12 +4,13 @@ _Plan agreed 2026-11-02. Free app, no ads, no in-app purchases, no data collecte
 
 First Play release for the owner: walk through each step together, one at a time.
 
-## Current state (2026-11-04): closed test in Google review
+## Current state (2026-11-06): closed test live, testers opting in
 
-**Waiting on Google.** 16 changes (closed test + store listing + app content) were sent
-for review on 2026-11-04. The console says reviews take up to 7 days. Check in the
-console: Publishing overview ("Changes in review" turns into published), or the email
-on the developer account.
+**Approved.** Release `1 (1.0.0)` on "Closed testing - Alpha" was published on
+2026-11-04 ("Available to selected testers"). Join link
+<https://play.google.com/apps/testing/com.basdekis.untangle> was emailed to all 12
+testers on 2026-11-06. Dashboard that evening: **2 testers opted in**. The 14 days start
+at 12. The Dashboard shows only the count, not who joined.
 
 Done:
 
@@ -40,7 +41,7 @@ Done:
 
 ## Next steps
 
-1. **Wait for approval** (up to ~7 days).
+1. ~~Wait for approval~~ Approved 2026-11-04.
 2. **Recommended now:** add 2–3 spare testers to "Untangle testers" (Alpha track → Testers
    → arrow next to the list). With exactly 12, one dropout restarts the 14 days.
 3. **After approval:** Alpha track → Testers tab → **Copy link** ("Join on the web"). Send
