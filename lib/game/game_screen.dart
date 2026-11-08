@@ -728,32 +728,63 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             ),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 22,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colors.crossingEdge,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+              _hintRow(
+                theme,
+                _lineSwatch(colors.crossingEdge),
+                'Lines that cross',
               ),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Text(
-                  'Lines that cross. Drag the dots until none are left.'
-                  '${_puzzle.vertexCount > 28 ? '\nPinch empty space to zoom. Hold it, then '
-                            'circle dots to move them together.' : ''}',
-                  style: theme.textTheme.bodySmall,
-                ),
+              _hintRow(
+                theme,
+                _lineSwatch(colors.edge),
+                'Lines that don’t cross',
               ),
+              _hintRow(
+                theme,
+                const Icon(Icons.touch_app_outlined, size: 18),
+                'Drag the dots until no crossing lines are left',
+              ),
+              _hintRow(
+                theme,
+                const Icon(Icons.gesture, size: 18),
+                'Hold empty space, then circle dots to move them together',
+              ),
+              if (_puzzle.vertexCount > 28)
+                _hintRow(
+                  theme,
+                  const Icon(Icons.pinch_outlined, size: 18),
+                  'Pinch empty space to zoom',
+                ),
             ],
           ),
         ),
       ),
     );
   }
+
+  Widget _lineSwatch(Color color) => Container(
+    width: 22,
+    height: 4,
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(2),
+    ),
+  );
+
+  Widget _hintRow(ThemeData theme, Widget lead, String text) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(width: 22, child: Center(child: lead)),
+        const SizedBox(width: 10),
+        Flexible(child: Text(text, style: theme.textTheme.bodySmall)),
+      ],
+    ),
+  );
 
   /// Runs [action] right away on an untouched or solved board; otherwise asks
   /// first, so a stray tap near the board edge can't wipe the player's work.

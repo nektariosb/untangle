@@ -38,6 +38,8 @@ Done:
     the console, not in this public repo). Feedback channel `opapasopaxys@pm.me`.
   - Release `1 (1.0.0)`, versionCode 1, API 24+, target SDK 36, 8.2 MB install.
     Notes: "First test release."
+  - Release `2 (1.0.1)` (2026-11-08): step-by-step start hint (line colours, drag, hold
+    and circle to group-select, pinch on big levels).
 
 ## Next steps
 
