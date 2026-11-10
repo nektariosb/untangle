@@ -1,0 +1,18 @@
+<p>Untangle is a quiet, relaxing puzzle about putting things in order.</p>
+
+<p>A set of dots is joined by lines, and the lines are all tangled up. Drag the dots around until no two lines cross. Lines that still cross glow terracotta, and when the last crossing is gone the whole board turns green.</p>
+
+<p>Every puzzle is generated fresh and is always solvable.</p>
+
+<ul>
+<li>11 levels, from 6 dots up to 91</li>
+<li>Beat a level to open the next one, and replay any level you've opened</li>
+<li>Drag with several fingers at once</li>
+<li>Pinch to zoom, and move a whole group of dots together on big levels</li>
+<li>Reshuffle the same puzzle, or ask for a new one</li>
+<li>Light and dark themes in soft olive greens</li>
+<li>Gentle sounds, with a mute button</li>
+<li>No timers to beat, no scores, no ads, no tracking, works offline</li>
+</ul>
+
+<p>Take your time. Tidy up the dots, find the pattern, and enjoy the moment it all comes loose.</p>

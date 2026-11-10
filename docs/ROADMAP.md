@@ -42,7 +42,10 @@ Added 2026-11-03 from the owner's play notes, **not yet tried on a phone**:
    [PLAY_STORE.md](PLAY_STORE.md). Closed test (12 testers) **sent for Google review
    2026-11-04**. Next: send the opt-in link once approved, 14 days of testing, apply for
    production.
-2. Install on a second phone (adb over USB, or send the release APK).
+2. **Publish on F-Droid**: MIT license, fastlane metadata and build recipe added
+   2026-11-10. Next: owner opens the merge request on fdroiddata, see
+   [FDROID.md](FDROID.md).
+3. Install on a second phone (adb over USB, or send the release APK).
 
 ## Ideas not picked yet
 

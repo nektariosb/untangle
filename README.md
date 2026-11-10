@@ -46,3 +46,7 @@ dart run flutter_native_splash:create
 
 [CLAUDE.md](CLAUDE.md) (code map and design rules) and [docs/ROADMAP.md](docs/ROADMAP.md)
 (status and plans).
+
+## License
+
+[MIT](LICENSE)

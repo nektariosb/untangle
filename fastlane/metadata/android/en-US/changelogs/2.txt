@@ -1,0 +1,3 @@
+First F-Droid release.
+
+- Step-by-step start hint: line colours, dragging, hold and circle to move a group, pinch to zoom on big levels.
