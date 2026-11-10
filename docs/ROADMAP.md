@@ -43,7 +43,7 @@ Added 2026-11-03 from the owner's play notes, **not yet tried on a phone**:
    2026-11-04**. Next: send the opt-in link once approved, 14 days of testing, apply for
    production.
 2. **Publish on F-Droid**: MIT license, fastlane metadata and build recipe added
-   2026-11-10. Next: owner opens the merge request on fdroiddata, see
+   2026-11-10. Merge request !56687 opened 2026-11-10, waiting for review, see
    [FDROID.md](FDROID.md).
 3. Install on a second phone (adb over USB, or send the release APK).
 

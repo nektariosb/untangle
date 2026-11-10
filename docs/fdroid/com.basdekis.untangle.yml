@@ -1,6 +1,8 @@
 Categories:
-  - Games
+  - Puzzle Game
 License: MIT
+AuthorName: nektariosb
+AuthorEmail: opapasopaxys@pm.me
 SourceCode: https://github.com/nektariosb/untangle
 IssueTracker: https://github.com/nektariosb/untangle/issues
 
@@ -11,9 +13,9 @@ Repo: https://github.com/nektariosb/untangle.git
 
 Builds:
   - versionName: 1.0.1
-    versionCode: 2
-    commit: v1.0.1
-    output: build/app/outputs/flutter-apk/app-release.apk
+    versionCode: 1002
+    commit: 0c5dadc995f7a58e3218d6b3399c4f1b0c2414fa
+    output: build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
     srclibs:
       - flutter@3.44.4
     rm:
@@ -22,17 +24,63 @@ Builds:
     prebuild:
       - export PUB_CACHE=$(pwd)/.pub-cache
       - $$flutter$$/bin/flutter config --no-analytics
-      - $$flutter$$/bin/flutter pub get
+      - $$flutter$$/bin/flutter pub get --enforce-lockfile
       - sed -i -e '/signingConfig = /d' android/app/build.gradle.kts
     scandelete:
       - .pub-cache
     build:
       - export PUB_CACHE=$(pwd)/.pub-cache
-      - $$flutter$$/bin/flutter build apk --release
+      - $$flutter$$/bin/flutter build apk --release --split-per-abi --target-platform=android-arm
+    ndk: r28c
+
+  - versionName: 1.0.1
+    versionCode: 2002
+    commit: 0c5dadc995f7a58e3218d6b3399c4f1b0c2414fa
+    output: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+    srclibs:
+      - flutter@3.44.4
+    rm:
+      - ios
+      - web
+    prebuild:
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter config --no-analytics
+      - $$flutter$$/bin/flutter pub get --enforce-lockfile
+      - sed -i -e '/signingConfig = /d' android/app/build.gradle.kts
+    scandelete:
+      - .pub-cache
+    build:
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter build apk --release --split-per-abi --target-platform=android-arm64
+    ndk: r28c
+
+  - versionName: 1.0.1
+    versionCode: 4002
+    commit: 0c5dadc995f7a58e3218d6b3399c4f1b0c2414fa
+    output: build/app/outputs/flutter-apk/app-x86_64-release.apk
+    srclibs:
+      - flutter@3.44.4
+    rm:
+      - ios
+      - web
+    prebuild:
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter config --no-analytics
+      - $$flutter$$/bin/flutter pub get --enforce-lockfile
+      - sed -i -e '/signingConfig = /d' android/app/build.gradle.kts
+    scandelete:
+      - .pub-cache
+    build:
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter build apk --release --split-per-abi --target-platform=android-x64
     ndk: r28c
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
+VercodeOperation:
+  - 1000 + %c
+  - 2000 + %c
+  - 4000 + %c
 UpdateCheckData: pubspec.yaml|version:\s.+\+(\d+)|.|version:\s(.+)\+
 CurrentVersion: 1.0.1
-CurrentVersionCode: 2
+CurrentVersionCode: 4002

@@ -8,25 +8,27 @@ with its own key. Free, no account fees.
 - `LICENSE`: MIT (F-Droid only lists FOSS apps).
 - `fastlane/metadata/android/en-US/`: title, descriptions, icon, feature graphic,
   5 screenshots, `changelogs/<versionCode>.txt`. F-Droid shows these on the app page.
-- `docs/fdroid/com.basdekis.untangle.yml`: the build recipe to submit to F-Droid.
-  Uses Flutter 3.44.4 and NDK r28c, removes the `signingConfig` line so the release APK
-  is unsigned, builds a universal APK. Tested locally 2026-11-10: builds, unsigned, no
-  Google Play Services / Play Core classes.
-- Git tag `v1.0.1` = the commit F-Droid builds.
+- `docs/fdroid/com.basdekis.untangle.yml`: copy of the submitted build recipe.
+  Flutter 3.44.4 (srclib), NDK r28c, removes the `signingConfig` line so the APKs are
+  unsigned, `--split-per-abi`: one APK per ABI (~17 MB each), version codes
+  1000/2000/4000 + build number (Flutter's own scheme). Category "Puzzle Game".
+  Tested locally 2026-11-10: builds, unsigned, arm64 APK has only arm64 libs, no Google
+  Play Services / Play Core classes; `fdroid lint` and `fdroid rewritemeta` clean.
+- Git tag `v1.0.1` = commit `0c5dadc9…` that F-Droid builds.
 
-## Steps for the owner
+## Submission (2026-11-10)
 
-1. Create a GitLab account at <https://gitlab.com/users/sign_up> (any username).
-2. Fork <https://gitlab.com/fdroid/fdroiddata> (button "Fork", top right).
-3. In your fork, on a new branch `com.basdekis.untangle`, add the file
-   `metadata/com.basdekis.untangle.yml` with the content of
-   [fdroid/com.basdekis.untangle.yml](fdroid/com.basdekis.untangle.yml)
-   (web editor: "+" → "New file").
-4. Open a merge request to `fdroid/fdroiddata` `master`. Pick the template
-   **"App inclusion"** and tick its checklist. Allow commits from maintainers.
-5. The CI pipeline builds the app. If it fails, paste the log here and fix the recipe.
-6. A volunteer reviews it (days to weeks). After merge, the app appears in the F-Droid
-   client within ~1–3 days.
+- GitLab account `marstons`, fork <https://gitlab.com/marstons/fdroiddata> (public),
+  branch `com.basdekis.untangle`.
+- Merge request **!56687** "New app: Untangle":
+  <https://gitlab.com/fdroid/fdroiddata/-/merge_requests/56687>
+- CI didn't start: GitLab wants identity verification (phone/card) on the fork. As F-Droid's
+  template advises, not done; a comment asks a maintainer to trigger the pipeline.
+- Not enabled: reproducible builds (F-Droid signs with its own key; can't be switched
+  later). Flutter is a srclib, not a submodule; offered to switch if reviewers ask.
+
+Next: wait for review (days to weeks). Answer reviewer comments; if the pipeline fails,
+paste the log to Claude. After merge, the app appears in the F-Droid client in ~1–3 days.
 
 ## Later releases
 
