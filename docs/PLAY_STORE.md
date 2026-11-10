@@ -40,7 +40,9 @@ Done:
     Notes: "First test release."
   - Release `2 (1.0.1)` (2026-11-08): step-by-step start hint (line colours, drag, hold
     and circle to group-select, pinch on big levels). Full rollout to Alpha, sent for
-    review 2026-11-08; release 1 not carried over.
+    review 2026-11-08; release 1 not carried over. Approved, live since 2026-11-08 19:07.
+  - 2026-11-10: Dashboard shows **12 testers opted in for 1 day**, so the 14 days end
+    around **2026-11-23**. Then apply for production.
 
 ## Next steps
 
