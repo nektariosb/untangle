@@ -27,8 +27,11 @@ with its own key. Free, no account fees.
 - Not enabled: reproducible builds (F-Droid signs with its own key; can't be switched
   later). Flutter is a srclib, not a submodule; offered to switch if reviewers ask.
 
-Next: wait for review (days to weeks). Answer reviewer comments; if the pipeline fails,
-paste the log to Claude. After merge, the app appears in the F-Droid client in ~1–3 days.
+**Closed 2026-11-10 by F-Droid reviewer `linsui`:** policy requires an app to be
+maintained for more than 3 months. First commit was 2026-11-02, so **resubmit after
+~2027-02-03**. Then: update the recipe (latest tag's full commit hash, version codes,
+Flutter version), push it to the fork branch, and reopen !56687 or open a new MR.
+Pipelines on the fork still need a maintainer to trigger them.
 
 ## Later releases
 
