@@ -4,7 +4,17 @@ _Plan agreed 2026-11-02. Free app, no ads, no in-app purchases, no data collecte
 
 First Play release for the owner: walk through each step together, one at a time.
 
-## Current state (2026-11-06): closed test live, testers opting in
+## Current state (2026-11-23): production access applied for
+
+2026-11-23: the Dashboard ticked all three requirements (12 testers × 14 days). Applied for
+production access the same day. Google emails the account owner, usually within 7 days.
+Next: step 8 below (production release).
+
+**The 14-day test is one-time.** It only unlocks production access for a new personal
+account. Later updates go straight to production with a normal review (hours to a few
+days), no testers needed.
+
+### Closed test history
 
 **Approved.** Release `1 (1.0.0)` on "Closed testing - Alpha" was published on
 2026-11-04 ("Available to selected testers"). Join link
@@ -58,7 +68,7 @@ Done:
    from Play. Saved progress resets.
 5. **Count 14 days** from when the 12th tester opts in. The Dashboard shows "x testers
    currently opted in". Expected earliest: ~2026-11-20 if approval and opt-ins are quick.
-6. **Apply for production** (Dashboard → Production → "Apply for production"). Answer the
+6. ~~Apply for production~~ Applied 2026-11-23, waiting for Google. (Dashboard → Production → "Apply for production"). Answer the
    questions about the test (who tested, feedback received, changes made). Then step 8
    below: a production release, another Google review.
 7. Any new build during the test: bump `version:` in `pubspec.yaml` (`1.0.1+2`, the

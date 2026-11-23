@@ -39,9 +39,9 @@ Added 2026-11-03 from the owner's play notes, **not yet tried on a phone**:
 ## Next tasks
 
 1. **Publish on Google Play**: see "Current state" and "Next steps" in
-   [PLAY_STORE.md](PLAY_STORE.md). Closed test (12 testers) **sent for Google review
-   2026-11-04**. Next: send the opt-in link once approved, 14 days of testing, apply for
-   production.
+   [PLAY_STORE.md](PLAY_STORE.md). Closed test (12 testers × 14 days) done.
+   **Applied for production access 2026-11-23**, waiting for Google (usually ≤ 7 days).
+   Next: production release.
 2. **Publish on F-Droid**: MIT license, fastlane metadata and build recipe added
    2026-11-10. Merge request !56687 closed the same day: F-Droid wants 3+ months of
    maintenance. **Resubmit after 2027-02-03**, see [FDROID.md](FDROID.md).
