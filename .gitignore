@@ -46,3 +46,6 @@ app.*.map.json
 
 # Uncropped phone screenshots (status bar shows notifications)
 docs/store/raw/
+
+# Claude Code local settings (private)
+.claude/
