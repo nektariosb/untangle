@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'levels.dart';
 import 'puzzle.dart';
 import 'sfx.dart';
 import 'store.dart';
@@ -60,12 +61,18 @@ class _Drag {
 }
 
 class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
-  static const _minLines = 4;
-  static const _maxLines = 14;
-  static const _maxLevel = _maxLines - _minLines + 1;
+  static const _maxLevel = Levels.count;
 
   late final _rng = widget.random ?? Random();
   final _stopwatch = Stopwatch();
+
+  /// The clock waits until the first dot is grabbed, so looking at (and
+  /// zooming into) a new puzzle is free.
+  bool _clockStarted = false;
+
+  /// The instructions were tapped away: they stay closed until the app is
+  /// restarted, also for new puzzles.
+  bool _hintClosed = false;
 
   /// Play time from before a restore; the stopwatch adds to it.
   Duration _elapsedBefore = Duration.zero;
@@ -77,6 +84,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   late Puzzle _puzzle;
   int _moves = 0;
   bool _solved = false;
+
+  /// Optional time limit, fixed when the puzzle starts (see [Levels.limit]).
+  late bool _timerOn = widget.store.timerOn;
+
+  /// Full screen shows only the exit button (no chips, no fit button).
+  late bool _hideInfo = widget.store.hideInfoFullScreen;
+  Duration _limit = Duration.zero;
 
   /// Solve animation: a green wave from the last-moved dot, then a burst.
   late final _solveAnim = AnimationController(
@@ -142,7 +156,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         _saveGame();
       },
       onShow: () {
-        if (!_solved) _stopwatch.start();
+        if (!_solved && _clockStarted) _stopwatch.start();
       },
     );
   }
@@ -160,24 +174,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  static int _linesFor(int level) => level + _minLines - 1;
-
-  static int _dotsFor(int level) {
-    final n = _linesFor(level);
-    return n * (n - 1) ~/ 2;
-  }
-
   void _newPuzzle() {
-    _puzzle = Puzzle.generate(_linesFor(_level), _rng);
+    _puzzle = Levels.generate(_level, _rng);
     _resetProgress();
-    _saveGame();
-  }
-
-  void _reshuffle() {
-    setState(() {
-      _puzzle.scramble(_rng);
-      _resetProgress();
-    });
     _saveGame();
   }
 
@@ -199,13 +198,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       final json = jsonDecode(raw) as Map<String, dynamic>;
       if (json['level'] != _level) return false;
       final puzzle = Puzzle.fromJson(json['puzzle'] as Map<String, dynamic>);
-      if (puzzle.vertexCount != _dotsFor(_level) || puzzle.isSolved) {
+      if (puzzle.vertexCount != Levels.dots(_level) || puzzle.isSolved) {
         return false;
       }
       _puzzle = puzzle;
       _resetProgress();
       _moves = json['moves'] as int;
       _elapsedBefore = Duration(milliseconds: json['elapsedMs'] as int);
+      if (_moves > 0 || _elapsedBefore > Duration.zero) _startClock();
       return true;
     } catch (_) {
       return false; // corrupt or from an older version: start fresh
@@ -223,10 +223,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _movedThisDrag.clear();
     _moves = 0;
     _solved = false;
+    _limit = Levels.limit(_level, widget.store.solveTimes(_level));
     _solveAnim.reset();
     _stopwatch
-      ..reset()
-      ..start();
+      ..stop()
+      ..reset();
+    _clockStarted = false;
+  }
+
+  void _startClock() {
+    _clockStarted = true;
+    _stopwatch.start();
   }
 
   void _goToLevel(int level) {
@@ -385,6 +392,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       return;
     }
     _holdTimer?.cancel(); // a dot was grabbed: no lasso now
+    if (!_clockStarted) _startClock();
     final group = _selected.contains(v) ? _selected : {v};
     setState(() {
       _viewAnim.stop();
@@ -447,6 +455,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         _selected = {};
         _resetView(); // show the whole untangled board
         widget.store.game = null;
+        widget.store.addSolveTime(_level, _elapsed);
         if (_level == _unlocked && _level < _maxLevel) {
           widget.store.unlocked = ++_unlocked;
         }
@@ -458,22 +467,59 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   Duration get _elapsed => _elapsedBefore + _stopwatch.elapsed;
 
-  String get _timeText {
-    final s = _elapsed.inSeconds;
+  String get _timeText => _clock(_elapsed);
+
+  static String _clock(Duration d) {
+    final s = d.inSeconds;
     return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
   }
 
-  /// Phone held sideways: the HUD and the bottom bar share one row, so the
-  /// board keeps most of the little height there is.
-  bool _compactLayout(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    return size.width > size.height && size.height < 500;
+  bool get _overTime => _timerOn && _elapsed > _limit;
+
+  /// With the limit on: time left counting down, then the time over it
+  /// ("+0:12"). Shown next to a timer icon.
+  String get _countdownText {
+    if (_overTime) return '+${_clock(_elapsed - _limit)}';
+    // Round up, so it shows 0:01 until the limit is actually reached.
+    return _clock(_limit - _elapsed + const Duration(milliseconds: 999));
+  }
+
+  /// Timer icon + countdown, terracotta once over the limit.
+  Widget _buildCountdown(BuildContext context, TextStyle? style) {
+    final color = _overTime
+        ? BoardColors.of(context).crossingEdge
+        : style?.color ?? Theme.of(context).colorScheme.onSurface;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.timer_outlined,
+          size: (style?.fontSize ?? 14) * 1.25,
+          color: color,
+        ),
+        const SizedBox(width: 3),
+        Text(
+          _countdownText,
+          maxLines: 1,
+          style: style?.copyWith(color: color, fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+  }
+
+  void _setTimerOn(bool on) {
+    setState(() => _timerOn = on);
+    widget.store.timerOn = on;
+  }
+
+  void _setHideInfo(bool on) {
+    setState(() => _hideInfo = on);
+    widget.store.hideInfoFullScreen = on;
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = BoardColors.of(context);
-    final compact = _compactLayout(context);
     return PopScope(
       // Back leaves full screen first.
       canPop: !_fullScreen,
@@ -488,12 +534,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             maxScaleFactor: 1.3,
             child: Column(
               children: [
-                if (!_fullScreen) _buildHud(context, compact: compact),
+                if (!_fullScreen) _buildHud(context),
                 Expanded(
                   child: Padding(
                     padding: _fullScreen
                         ? const EdgeInsets.all(4)
-                        : EdgeInsets.fromLTRB(8, 0, 8, compact ? 8 : 0),
+                        : const EdgeInsets.fromLTRB(8, 0, 8, 8),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(20),
                       child: Container(
@@ -503,7 +549,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     ),
                   ),
                 ),
-                if (!_fullScreen && !compact) _buildBottomBar(),
               ],
             ),
           ),
@@ -518,6 +563,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         _boardSize = constraints.biggest;
         _padding = _dotRadius + 6;
         _pan = _clampPan(_pan, _zoom); // after a resize
+        final clean = _fullScreen && _hideInfo;
         return Stack(
           fit: StackFit.expand,
           children: [
@@ -542,15 +588,25 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 ),
               ),
             ),
-            if (_moves == 0 && _drags.isEmpty && !_solved && !_fullScreen)
+            if (_moves == 0 &&
+                _drags.isEmpty &&
+                !_solved &&
+                !_fullScreen &&
+                !_hintClosed)
               _buildHint(context, colors),
-            if (_fullScreen)
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Row(
-                  children: [
-                    _buildCrossingsChip(),
+            // Crossings in the board's corner (the HUD has no room for it).
+            // The chips let touches through to dots underneath.
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Row(
+                children: [
+                  if (_fullScreen && _timerOn && !_solved && !clean) ...[
+                    IgnorePointer(child: _buildTimerChip(context)),
+                    const SizedBox(width: 4),
+                  ],
+                  if (!clean) IgnorePointer(child: _buildCrossingsChip()),
+                  if (_fullScreen) ...[
                     const SizedBox(width: 4),
                     IconButton.filledTonal(
                       tooltip: 'Exit full screen',
@@ -558,9 +614,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       onPressed: () => _setFullScreen(false),
                     ),
                   ],
-                ),
+                ],
               ),
-            if (_selected.isNotEmpty && !_solved)
+            ),
+            if (_selected.isNotEmpty && !_solved && !clean)
               Positioned(
                 top: 8,
                 left: 8,
@@ -570,7 +627,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   deleteButtonTooltipMessage: 'Clear selection',
                 ),
               ),
-            if (_zoom > 1)
+            if (_zoom > 1 && !clean)
               Positioned(
                 right: 8,
                 bottom: 8,
@@ -609,7 +666,23 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildHud(BuildContext context, {required bool compact}) {
+  /// The countdown in full screen, where the HUD is hidden.
+  Widget _buildTimerChip(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: _buildCountdown(
+        context,
+        TextStyle(color: theme.colorScheme.onSurface),
+      ),
+    );
+  }
+
+  Widget _buildHud(BuildContext context) {
     final theme = Theme.of(context);
     // Narrow phones: slightly smaller icon buttons so the level stays readable.
     final density = MediaQuery.sizeOf(context).width < 380
@@ -620,7 +693,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       child: Row(
         children: [
           Expanded(
-            flex: 3,
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: _showLevelPicker,
@@ -644,122 +716,164 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                         const Icon(Icons.arrow_drop_down),
                       ],
                     ),
-                    Text(
-                      '${_puzzle.vertexCount} dots · $_moves moves · $_timeText',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                    Builder(
+                      builder: (context) {
+                        final style = theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        );
+                        final info = Text(
+                          // Dot counts are in the level sheet.
+                          _timerOn
+                              ? '$_moves moves'
+                              : '$_moves moves · $_timeText',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: style,
+                        );
+                        if (!_timerOn) return info;
+                        // Countdown first, so it's never the part cut off.
+                        return Row(
+                          children: [
+                            _buildCountdown(
+                              context,
+                              theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(child: info),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
               ),
             ),
           ),
-          // Shrinks (rather than overflowing) when a big count meets a narrow
-          // screen or large system text.
-          Flexible(
-            flex: 2,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: _buildCrossingsChip(),
-            ),
+          IconButton.filledTonal(
+            visualDensity: density,
+            tooltip: 'New puzzle',
+            icon: const Icon(Icons.casino_outlined),
+            onPressed: () =>
+                _confirmThen('New puzzle', () => setState(_newPuzzle)),
           ),
-          if (compact) ...[
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: 'Reshuffle',
-              icon: const Icon(Icons.refresh),
-              onPressed: () => _confirmThen('Reshuffle', _reshuffle),
-            ),
-            IconButton(
-              tooltip: 'New puzzle',
-              icon: const Icon(Icons.casino_outlined),
-              onPressed: () =>
-                  _confirmThen('New puzzle', () => setState(_newPuzzle)),
-            ),
-          ],
+          const SizedBox(width: 4),
           IconButton(
             visualDensity: density,
-            tooltip: theme.brightness == Brightness.dark
-                ? 'Light theme'
-                : 'Dark theme',
-            icon: Icon(
-              theme.brightness == Brightness.dark
-                  ? Icons.light_mode_outlined
-                  : Icons.dark_mode_outlined,
-            ),
-            onPressed: () => widget.onToggleTheme(theme.brightness),
+            tooltip: 'Full screen',
+            icon: const Icon(Icons.fullscreen),
+            onPressed: () => _setFullScreen(true),
           ),
-          IconButton(
-            visualDensity: density,
-            tooltip: widget.sfx.muted ? 'Sound on' : 'Mute',
-            icon: Icon(
-              widget.sfx.muted
-                  ? Icons.volume_off_outlined
-                  : Icons.volume_up_outlined,
-            ),
-            onPressed: _toggleMute,
-          ),
-          if (compact)
-            IconButton(
-              tooltip: 'Full screen',
-              icon: const Icon(Icons.fullscreen),
-              onPressed: () => _setFullScreen(true),
-            ),
+          _buildSettingsMenu(context, density),
         ],
       ),
     );
   }
 
-  /// Explains the goal until the first move is made.
+  /// Theme, sound and time limit, behind one ⚙ button.
+  Widget _buildSettingsMenu(BuildContext context, VisualDensity? density) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return PopupMenuButton<String>(
+      tooltip: 'Settings',
+      icon: const Icon(Icons.settings_outlined),
+      style: IconButton.styleFrom(visualDensity: density),
+      onSelected: (item) => switch (item) {
+        'theme' => widget.onToggleTheme(Theme.of(context).brightness),
+        'sound' => _toggleMute(),
+        'timer' => _setTimerOn(!_timerOn),
+        _ => _setHideInfo(!_hideInfo),
+      },
+      itemBuilder: (context) => [
+        CheckedPopupMenuItem(
+          value: 'theme',
+          checked: dark,
+          child: const Text('Dark theme'),
+        ),
+        CheckedPopupMenuItem(
+          value: 'sound',
+          checked: !widget.sfx.muted,
+          child: const Text('Sound'),
+        ),
+        CheckedPopupMenuItem(
+          value: 'timer',
+          checked: _timerOn,
+          child: const Text('Time limit'),
+        ),
+        CheckedPopupMenuItem(
+          value: 'clean',
+          checked: _hideInfo,
+          child: const Text('Hide info in full screen'),
+        ),
+      ],
+    );
+  }
+
+  /// Explains the goal until the first move is made, or until tapped. A tap
+  /// closes it without starting the clock, so the whole board can be studied.
   Widget _buildHint(BuildContext context, BoardColors colors) {
     final theme = Theme.of(context);
-    return IgnorePointer(
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: Container(
-          margin: const EdgeInsets.all(12),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHigh.withValues(
-              alpha: 0.92,
+    // Below the crossings chip in the corner. Wraps to the board's width,
+    // and shrinks to fit a short board (phone landscape).
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 52, 12, 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Align(
+          alignment: Alignment.topCenter,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+              child: _hintCard(theme, colors),
             ),
-            borderRadius: BorderRadius.circular(16),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        ),
+      ),
+    );
+  }
+
+  Widget _hintCard(ThemeData theme, BoardColors colors) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() => _hintClosed = true),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _hintRow(
+              theme,
+              _lineSwatch(colors.crossingEdge),
+              'Lines that cross',
+            ),
+            _hintRow(theme, _lineSwatch(colors.edge), 'Lines that don’t cross'),
+            _hintRow(
+              theme,
+              const Icon(Icons.touch_app_outlined, size: 18),
+              'Drag the dots until no crossing lines are left',
+            ),
+            _hintRow(
+              theme,
+              const Icon(Icons.gesture, size: 18),
+              'Hold empty space, then circle dots to move them together',
+            ),
+            if (_puzzle.vertexCount > 28)
               _hintRow(
                 theme,
-                _lineSwatch(colors.crossingEdge),
-                'Lines that cross',
+                const Icon(Icons.pinch_outlined, size: 18),
+                'Pinch empty space to zoom',
               ),
-              _hintRow(
-                theme,
-                _lineSwatch(colors.edge),
-                'Lines that don’t cross',
-              ),
-              _hintRow(
-                theme,
-                const Icon(Icons.touch_app_outlined, size: 18),
-                'Drag the dots until no crossing lines are left',
-              ),
-              _hintRow(
-                theme,
-                const Icon(Icons.gesture, size: 18),
-                'Hold empty space, then circle dots to move them together',
-              ),
-              if (_puzzle.vertexCount > 28)
-                _hintRow(
-                  theme,
-                  const Icon(Icons.pinch_outlined, size: 18),
-                  'Pinch empty space to zoom',
-                ),
-            ],
-          ),
+            _hintRow(
+              theme,
+              const Icon(Icons.close, size: 18),
+              'Tap here to close',
+            ),
+          ],
         ),
       ),
     );
@@ -813,43 +927,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (ok == true && mounted) action();
   }
 
-  Widget _buildBottomBar() {
-    final style = OutlinedButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-    );
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              style: style,
-              onPressed: () => _confirmThen('Reshuffle', _reshuffle),
-              icon: const Icon(Icons.refresh),
-              label: const _OneLine('Reshuffle'),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: OutlinedButton.icon(
-              style: style,
-              onPressed: () =>
-                  _confirmThen('New puzzle', () => setState(_newPuzzle)),
-              icon: const Icon(Icons.casino_outlined),
-              label: const _OneLine('New puzzle'),
-            ),
-          ),
-          const SizedBox(width: 4),
-          IconButton(
-            tooltip: 'Full screen',
-            icon: const Icon(Icons.fullscreen),
-            onPressed: () => _setFullScreen(true),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showLevelPicker() {
     showModalBottomSheet<void>(
       context: context,
@@ -860,6 +937,29 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       ),
       builder: (context) {
         final theme = Theme.of(context);
+        Widget levelChips(int from, int to) => Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (var l = from; l <= to; l++)
+              ChoiceChip(
+                selected: l == _level,
+                avatar: l > _unlocked
+                    ? const Icon(Icons.lock_outline, size: 16)
+                    : null,
+                label: Text('$l  ·  ${Levels.dots(l)} dots'),
+                onSelected: l > _unlocked
+                    ? null
+                    : (_) {
+                        Navigator.pop(context);
+                        _goToLevel(l);
+                      },
+              ),
+          ],
+        );
+        final sectionStyle = theme.textTheme.labelLarge?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        );
         return SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -867,28 +967,36 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // At the top, so it's seen without scrolling. The sheet
+                // doesn't rebuild with the screen, so the switch keeps its
+                // own state.
+                StatefulBuilder(
+                  builder: (context, setSheetState) => SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    secondary: const Icon(Icons.timer_outlined),
+                    title: const Text('Time limit'),
+                    subtitle: Text(
+                      'Level $_level: ${_clock(_limit)}. '
+                      'It gets shorter as you get faster.',
+                    ),
+                    value: _timerOn,
+                    onChanged: (on) {
+                      _setTimerOn(on);
+                      setSheetState(() {});
+                    },
+                  ),
+                ),
+                const Divider(),
+                const SizedBox(height: 8),
                 Text('Choose level', style: theme.textTheme.titleMedium),
                 const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (var l = 1; l <= _maxLevel; l++)
-                      ChoiceChip(
-                        selected: l == _level,
-                        avatar: l > _unlocked
-                            ? const Icon(Icons.lock_outline, size: 16)
-                            : null,
-                        label: Text('$l  ·  ${_dotsFor(l)} dots'),
-                        onSelected: l > _unlocked
-                            ? null
-                            : (_) {
-                                Navigator.pop(context);
-                                _goToLevel(l);
-                              },
-                      ),
-                  ],
-                ),
+                Text('Lines', style: sectionStyle),
+                const SizedBox(height: 8),
+                levelChips(1, Levels.lineLevels),
+                const SizedBox(height: 16),
+                Text('Mesh · harder, scattered start', style: sectionStyle),
+                const SizedBox(height: 8),
+                levelChips(Levels.lineLevels + 1, _maxLevel),
               ],
             ),
           ),
@@ -938,6 +1046,46 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       '$_moves moves in $_timeText',
                       style: theme.textTheme.bodyMedium,
                     ),
+                    if (_timerOn) ...[
+                      const SizedBox(height: 8),
+                      Builder(
+                        builder: (context) {
+                          final color = _overTime
+                              ? BoardColors.of(context).crossingEdge
+                              : BoardColors.of(context).solved;
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _overTime
+                                    ? Icons.timer_off_outlined
+                                    : Icons.check_circle_outline,
+                                size: 18,
+                                color: color,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _overTime
+                                    ? 'Time limit was ${_clock(_limit)}'
+                                    : 'You beat the time limit '
+                                          '(${_clock(_limit)})',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: color,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Next time limit: ${_clock(Levels.limit(_level, widget.store.solveTimes(_level)))}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     Wrap(
                       spacing: 12,
@@ -966,19 +1114,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       ),
     );
   }
-}
-
-/// A button label that shrinks on a narrow screen instead of wrapping.
-class _OneLine extends StatelessWidget {
-  const _OneLine(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => FittedBox(
-    fit: BoxFit.scaleDown,
-    child: Text(text, maxLines: 1, softWrap: false),
-  );
 }
 
 /// Board palette for the current theme brightness.

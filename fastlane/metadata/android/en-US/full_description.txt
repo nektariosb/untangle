@@ -5,14 +5,15 @@
 <p>Every puzzle is generated fresh and is always solvable.</p>
 
 <ul>
-<li>11 levels, from 6 dots up to 91</li>
+<li>20 levels: 11 line puzzles from 6 dots up to 91, then 9 harder, irregular ones</li>
 <li>Beat a level to open the next one, and replay any level you've opened</li>
 <li>Drag with several fingers at once</li>
 <li>Pinch to zoom, and move a whole group of dots together on big levels</li>
-<li>Reshuffle the same puzzle, or ask for a new one</li>
+<li>Start a new puzzle any time</li>
 <li>Light and dark themes in soft olive greens</li>
 <li>Gentle sounds, with a mute button</li>
-<li>No timers to beat, no scores, no ads, no tracking, works offline</li>
+<li>An optional time limit that adapts to your pace, off by default</li>
+<li>No scores, no ads, no tracking, works offline</li>
 </ul>
 
 <p>Take your time. Tidy up the dots, find the pattern, and enjoy the moment it all comes loose.</p>

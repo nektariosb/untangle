@@ -1,6 +1,6 @@
 # Roadmap & status
 
-_Last updated: 2026-11-04_
+_Last updated: 2026-11-24_
 
 ## Goal
 
@@ -25,16 +25,40 @@ mute), solve animation, sound with mute, icon and splash.
 
 Added 2026-11-03 from the owner's play notes, **not yet tried on a phone**:
 
-- Reshuffle / New puzzle ask before discarding progress once a dot was moved (they sat
-  under the board and got hit by accident).
+- New puzzle asks before discarding progress once a dot was moved (it got hit by
+  accident).
 - **Pinch zoom** (two fingers on empty board; dots keep their size; one finger pans when
-  zoomed; fit button) and **full screen** (bottom-bar button; Back exits).
+  zoomed; fit button) and **full screen** (HUD button; Back exits).
 - The puzzle in progress is saved and restored if the OS kills the app; the timer pauses
   in the background.
 - A grabbed dot keeps its offset from the finger instead of jumping under it.
 - **Group move**: hold empty board 0.5 s, circle dots, drag any of them to move all. The
   next touch that isn't on a selected dot clears the selection.
 - On solve the view eases out to the whole board.
+
+Added 2026-11-24 because level 11 got too easy, **not yet tried on a phone**:
+
+- **Levels 12–20, mesh puzzles** (25 → 81 dots): random triangulated dots instead of
+  lines, so no regular pattern. They start **scattered** over the board, not on a circle.
+  An existing player must beat level 11 once more to unlock 12.
+- **Optional time limit** (switch at the top of the level sheet and in ⚙, off by
+  default): your average of the last 5 solves on that level minus 10%; a size estimate
+  the first time. Counts down in the HUD, then shows "+0:12" in terracotta. You can
+  still finish; the solved card says "You beat the time limit" or "Time limit was …".
+  The clock starts at the first dot grab, so looking and zooming are free.
+- Tried on the phone the same day, then changed from the owner's notes:
+  - **No bottom bar**, more board. One HUD row: level | 🎲 New puzzle | full screen |
+    ⚙ menu (Dark theme, Sound, Time limit, Hide info in full screen).
+  - **Reshuffle removed**: to the player it felt the same as New puzzle.
+  - Crossings chip floats on the board's top-right corner.
+  - The instructions box closes on tap, without starting the clock.
+  - **Hide info in full screen** (⚙): only the exit button stays.
+  - Debug builds install as "Untangle Dev" (`com.basdekis.untangle.dev`), next to the
+    Play version.
+- Tuning knobs if it's too hard or too easy: dot counts and the edge-drop ratio
+  (1/5) in `levels.dart` / `Puzzle.generateMesh`, the 10% in `Levels.limit`.
+- Store texts (store_listing.md, fastlane) updated; **the Play Console listing still
+  has the old text**, so update it with the next release.
 
 ## Next tasks
 
@@ -46,11 +70,12 @@ Added 2026-11-03 from the owner's play notes, **not yet tried on a phone**:
    2026-11-10. Merge request !56687 closed the same day: F-Droid wants 3+ months of
    maintenance. **Resubmit after 2027-02-03**, see [FDROID.md](FDROID.md).
 3. Install on a second phone (adb over USB, or send the release APK).
+4. **Keep the screen awake while playing** (owner liked it 2026-11-24).
+5. **Colour-blind-friendly crossing lines**: draw crossing lines thicker or dashed, not
+   only in terracotta (owner liked it 2026-11-24).
 
-## Ideas not picked yet
-
-- Keep the screen awake while playing.
-- Colour-blind-friendly crossing lines (thicker or dashed).
+Features can be built while Play reviews production access, but don't upload a new
+build until approval arrives; ship them in the first production release or right after.
 
 ## Parked: what does "improving a level" mean?
 
@@ -59,7 +84,8 @@ solved layout is, and/or a solved count per level. Not by time or moves.
 
 ## Rejected by the owner (don't propose again)
 
-- Best time / fewest moves per level, any time-based challenge or scoring.
+- Best time / fewest moves per level, time-based scoring. (The opt-in time limit,
+  added 2026-11-24 at the owner's request, is the one exception.)
 - Daily puzzle and streaks.
 - Undo. Hints.
 - Extra game modes (time attack, zen).

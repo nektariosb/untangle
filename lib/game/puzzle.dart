@@ -16,10 +16,20 @@ class Puzzle {
   final List<Edge> edges;
   final List<Set<int>> neighbors;
 
+  /// Scrambles scatter the dots over the board instead of placing them on a
+  /// circle (mesh levels), which hides the structure better.
+  final bool scatter;
+
   List<bool> crossing = [];
   int crossingCount = 0;
 
-  Puzzle._(this.positions, this.solution, this.edges, this.neighbors) {
+  Puzzle._(
+    this.positions,
+    this.solution,
+    this.edges,
+    this.neighbors, {
+    this.scatter = false,
+  }) {
     recompute();
   }
 
@@ -77,6 +87,84 @@ class Puzzle {
     return puzzle;
   }
 
+  /// Builds a harder, irregular puzzle: [dotCount] random, well-spaced dots,
+  /// joined shortest-first by every line that crosses no earlier one (a
+  /// greedy triangulation, planar by construction). About a fifth of the
+  /// lines are then removed, never leaving a dot with fewer than two.
+  /// Scrambles scatter the dots.
+  factory Puzzle.generateMesh(int dotCount, Random rng) {
+    final solution = _spreadPoints(dotCount, 0.65, rng);
+
+    final pairs = <(double, int, int)>[
+      for (var i = 0; i < dotCount; i++)
+        for (var j = i + 1; j < dotCount; j++)
+          ((solution[i] - solution[j]).distanceSquared, i, j),
+    ]..sort((x, y) => x.$1.compareTo(y.$1));
+
+    final edges = <Edge>[];
+    for (final (_, i, j) in pairs) {
+      final crosses = edges.any(
+        (e) =>
+            e.a != i &&
+            e.a != j &&
+            e.b != i &&
+            e.b != j &&
+            _segmentsIntersect(
+              solution[i],
+              solution[j],
+              solution[e.a],
+              solution[e.b],
+            ),
+      );
+      if (!crosses) edges.add(Edge(i, j));
+    }
+
+    final degree = List.filled(dotCount, 0);
+    for (final e in edges) {
+      degree[e.a]++;
+      degree[e.b]++;
+    }
+    edges.shuffle(rng);
+    var toRemove = edges.length ~/ 5;
+    edges.removeWhere((e) {
+      if (toRemove == 0 || degree[e.a] <= 2 || degree[e.b] <= 2) return false;
+      degree[e.a]--;
+      degree[e.b]--;
+      toRemove--;
+      return true;
+    });
+
+    final puzzle = Puzzle._(
+      List.of(solution),
+      solution,
+      edges,
+      _neighborsOf(dotCount, edges),
+      scatter: true,
+    );
+    puzzle.scramble(rng);
+    return puzzle;
+  }
+
+  /// [n] random points in the unit square, kept about `spacing / sqrt(n)`
+  /// apart so dots don't sit on top of each other. Relaxes the spacing if
+  /// the square fills up.
+  static List<Offset> _spreadPoints(int n, double spacing, Random rng) {
+    var minDist = spacing / sqrt(n);
+    final pts = <Offset>[];
+    var misses = 0;
+    while (pts.length < n) {
+      final p = Offset(rng.nextDouble(), rng.nextDouble());
+      if (pts.every((q) => (q - p).distance >= minDist)) {
+        pts.add(p);
+        misses = 0;
+      } else if (++misses > 500) {
+        minDist *= 0.9;
+        misses = 0;
+      }
+    }
+    return pts;
+  }
+
   /// Flat number lists, so a saved game stays small.
   Map<String, Object> toJson() => {
     'positions': [
@@ -88,6 +176,7 @@ class Puzzle {
     'edges': [
       for (final e in edges) ...[e.a, e.b],
     ],
+    'scatter': scatter,
   };
 
   /// Throws [FormatException] (or a cast error) on malformed data.
@@ -112,7 +201,13 @@ class Puzzle {
         edges.any((e) => e.a < 0 || e.b < 0 || e.a >= n || e.b >= n)) {
       throw const FormatException('Bad saved puzzle');
     }
-    return Puzzle._(positions, solution, edges, _neighborsOf(n, edges));
+    return Puzzle._(
+      positions,
+      solution,
+      edges,
+      _neighborsOf(n, edges),
+      scatter: json['scatter'] == true, // absent in older saves
+    );
   }
 
   static List<Set<int>> _neighborsOf(int n, List<Edge> edges) {
@@ -124,8 +219,16 @@ class Puzzle {
     return neighbors;
   }
 
-  /// Places the vertices on a circle in random order (always tangled).
+  /// Places the vertices on a circle in random order, or scatters them over
+  /// the board when [scatter] is set (always tangled).
   void scramble(Random rng) {
+    if (scatter) {
+      do {
+        positions.setAll(0, _spreadPoints(vertexCount, 0.5, rng));
+        recompute();
+      } while (crossingCount == 0);
+      return;
+    }
     final order = List.generate(vertexCount, (i) => i);
     do {
       order.shuffle(rng);

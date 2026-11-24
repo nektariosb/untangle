@@ -73,7 +73,13 @@ void main() {
     required int level,
     required int seed,
   }) async {
-    SharedPreferences.setMockInitialValues({'level': level, 'unlocked': level});
+    // Time limit on: longer HUD line, timer chip in full screen, and two
+    // more lines on the solved card.
+    SharedPreferences.setMockInitialValues({
+      'level': level,
+      'unlocked': level,
+      'timerOn': true,
+    });
     final store = await Store.load();
     await tester.pumpWidget(const SizedBox()); // a fresh screen state
     await tester.pumpWidget(
@@ -131,7 +137,10 @@ void main() {
         await tester.tapAt(const Offset(4, 30)); // scrim
         await tester.pumpAndSettle();
 
-        // A move, then the confirm dialog.
+        // Close the instructions (they'd catch touches on dots below them),
+        // then a move, then the confirm dialog.
+        await tester.tap(find.text('Tap here to close'));
+        await tester.pump();
         final from = toScreen(big.positions[0]);
         final g = await tester.startGesture(from);
         await g.moveTo(from + const Offset(10, 10));
@@ -160,6 +169,8 @@ void main() {
 
         // Solved card on level 1.
         final small = await pumpGame(tester, level: 1, seed: 7);
+        await tester.tap(find.text('Tap here to close'));
+        await tester.pump();
         final map = boardMapping(tester, 13 + 6);
         for (var v = 0; v < small.vertexCount; v++) {
           final g = await tester.startGesture(map(small.positions[v]));

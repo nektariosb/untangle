@@ -6,7 +6,7 @@ Untangle
 
 ## Short description (max 80 characters)
 
-A calm puzzle: drag the dots until no lines cross. No timers, no pressure.
+A calm puzzle: drag the dots until no lines cross. No ads, no pressure.
 
 ## Full description
 
@@ -18,14 +18,15 @@ the last crossing is gone the whole board turns green.
 
 Every puzzle is generated fresh and is always solvable.
 
-• 11 levels, from 6 dots up to 91
+• 20 levels: 11 line puzzles from 6 dots up to 91, then 9 harder, irregular ones
 • Beat a level to open the next one, and replay any level you've opened
 • Drag with several fingers at once
 • Pinch to zoom, and move a whole group of dots together on big levels
-• Reshuffle the same puzzle, or ask for a new one
+• Start a new puzzle any time
 • Light and dark themes in soft olive greens
 • Gentle sounds, with a mute button
-• No timers to beat, no scores
+• An optional time limit that adapts to your pace, off by default
+• No scores, no ads
 
 Take your time. Tidy up the dots, find the pattern, and enjoy the moment it all
 comes loose.

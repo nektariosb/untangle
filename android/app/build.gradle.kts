@@ -33,6 +33,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appName"] = "Untangle"
     }
 
     signingConfigs {
@@ -47,6 +48,12 @@ android {
     }
 
     buildTypes {
+        // `flutter run` builds get their own app id and name, so they install
+        // next to the Play Store version instead of replacing it.
+        debug {
+            applicationIdSuffix = ".dev"
+            manifestPlaceholders["appName"] = "Untangle Dev"
+        }
         release {
             signingConfig = signingConfigs.getByName(if (hasUploadKey) "upload" else "debug")
         }
