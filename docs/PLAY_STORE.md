@@ -4,11 +4,18 @@ _Plan agreed 2026-11-02. Free app, no ads, no in-app purchases, no data collecte
 
 First Play release for the owner: walk through each step together, one at a time.
 
-## Current state (2026-11-23): production access applied for
+## Current state (2026-11-24): first production release in review
 
 2026-11-23: the Dashboard ticked all three requirements (12 testers × 14 days). Applied for
-production access the same day. Google emails the account owner, usually within 7 days.
-Next: step 8 below (production release).
+production access the same day. **Granted 2026-11-24** (shown only on the Dashboard card
+"Create and publish a release", no notification).
+
+2026-11-24: production release `3 (1.1.0)` (mesh levels 12–20, optional time limit,
+simpler HUD; not on the Alpha track) sent for review. Full rollout, all 177 countries +
+rest of world (same as Alpha). Notes: "9 new levels (12–20): a new kind of puzzle /
+Optional time limit (off by default) / Simpler screen, more space for the board".
+**Managed publishing is off**, so it goes live as soon as Google approves (usually
+≤ 7 days). Next: check Publishing overview, then the store page.
 
 **The 14-day test is one-time.** It only unlocks production access for a new personal
 account. Later updates go straight to production with a normal review (hours to a few
@@ -68,7 +75,7 @@ Done:
    from Play. Saved progress resets.
 5. **Count 14 days** from when the 12th tester opts in. The Dashboard shows "x testers
    currently opted in". Expected earliest: ~2026-11-20 if approval and opt-ins are quick.
-6. ~~Apply for production~~ Applied 2026-11-23, waiting for Google. (Dashboard → Production → "Apply for production"). Answer the
+6. ~~Apply for production~~ Applied 2026-11-23, granted 2026-11-24. (Dashboard → Production → "Apply for production"). Answer the
    questions about the test (who tested, feedback received, changes made). Then step 8
    below: a production release, another Google review.
 7. Any new build during the test: bump `version:` in `pubspec.yaml` (`1.0.1+2`, the
