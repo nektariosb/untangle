@@ -64,8 +64,8 @@ Added 2026-11-24 because level 11 got too easy, **not yet tried on a phone**:
 
 1. **Publish on Google Play**: see "Current state" and "Next steps" in
    [PLAY_STORE.md](PLAY_STORE.md). Closed test (12 testers × 14 days) done.
-   **Applied for production access 2026-11-23**, waiting for Google (usually ≤ 7 days).
-   Next: production release.
+   Production access granted 2026-11-24; **release 3 (1.1.0) sent for review the same
+   day**, goes live on approval.
 2. **Publish on F-Droid**: MIT license, fastlane metadata and build recipe added
    2026-11-10. Merge request !56687 closed the same day: F-Droid wants 3+ months of
    maintenance. **Resubmit after 2027-02-03**, see [FDROID.md](FDROID.md).
@@ -76,6 +76,13 @@ Added 2026-11-24 because level 11 got too easy, **not yet tried on a phone**:
 
 Features can be built while Play reviews production access, but don't upload a new
 build until approval arrives; ship them in the first production release or right after.
+
+## Parked: difficulty tiers (owner's idea, 2026-11-25)
+
+Owner solved mesh levels 12–14 easily (moves all dots away first, so the scattered start
+doesn't matter). Wants to play 15–20 first, then maybe add difficulty choices like
+"normal / hard / veeery hard". Ways to make mesh harder: keep all triangles (now ~1/5 of
+lines are removed) and/or more dots. Not a new game mode, just harder puzzles.
 
 ## Parked: what does "improving a level" mean?
 
